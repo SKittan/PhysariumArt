@@ -8,3 +8,9 @@ edition = "2018"
 
 [dependencies]
 nannou = "0.16"
+
+[build-dependencies]
+anyhow = "1.0"
+fs_extra = "1.1"
+glob = "0.3"
+shaderc = "0.7"
