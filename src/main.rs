@@ -1,5 +1,3 @@
-use nannou::image;
-use nannou::image::GenericImageView;
 use nannou::prelude::*;
 
 mod gpu_create;
@@ -36,7 +34,7 @@ fn main() {
 }
 
 fn model(app: &App) -> Model {
-    let (size_x, size_y) = (1024, 1024);
+    let (size_x, size_y) = (512, 512);
 
     let w_id = app
         .new_window()
@@ -50,17 +48,19 @@ fn model(app: &App) -> Model {
     let msaa_samples = window.msaa_samples();
 
     let vs_mod =
-        wgpu::shader_from_spirv_bytes(device,
-                                      include_bytes!("../Shader/vert.spv"));
+        wgpu::shader_from_spirv_bytes
+            (device, include_bytes!("../Shader/passThrough.vert.spv"));
     let fs_mod =
-        wgpu::shader_from_spirv_bytes(device,
-                                      include_bytes!("../Shader/frag.spv"));
+        wgpu::shader_from_spirv_bytes(
+            device, include_bytes!("../Shader/render.frag.spv"));
 
-    let texture = &wgpu::TextureBuilder::new()
-                    .size([size_x, size_y])
-                    .sample_count(msaa_samples)
-                    .format(wgpu::TextureFormat::Rg32Uint)
-                    .build(device);
+    let texture = wgpu::TextureBuilder::new()
+                  .size([size_x, size_y])
+                  .usage(wgpu::TextureUsage::RENDER_ATTACHMENT |
+                         wgpu::TextureUsage::SAMPLED)
+                  .sample_count(msaa_samples)
+                  .format(wgpu::TextureFormat::Rgba16Float)
+                  .build(device);
     let texture_view = texture.view().build();
 
     // Create the sampler for sampling from the source texture.
@@ -69,8 +69,10 @@ fn model(app: &App) -> Model {
     let sampler = device.create_sampler(&sampler_desc);
 
     let bind_group_layout =
-        create_bind_group_layout_texture(device, texture_view.sample_type(), sampler_filtering);
-    let bind_group = create_bind_group_texture(device, &bind_group_layout, &texture_view, &sampler);
+        create_bind_group_layout_texture(device, texture_view.sample_type(),
+                                         sampler_filtering);
+    let bind_group = create_bind_group_texture(device, &bind_group_layout,
+                                               &texture_view, &sampler);
     let pipeline_layout = create_pipeline_layout(device, &bind_group_layout);
     let render_pipeline = create_render_pipeline(
         device,
