@@ -32,19 +32,10 @@ pub fn create_bind_group_layout_buffer(device: &wgpu::Device)
         .build(device)
 }
 
-pub fn create_bind_group_layout_texture(
-    device: &wgpu::Device,
-    texture_sample_type: wgpu::TextureSampleType,
-    sampler_filtering: bool,)
+pub fn create_bind_group_layout_render(
+    device: &wgpu::Device)
 -> wgpu::BindGroupLayout {
     wgpu::BindGroupLayoutBuilder::new()
-        .texture(
-            wgpu::ShaderStage::FRAGMENT,
-            false,
-            wgpu::TextureViewDimension::D2,
-            texture_sample_type,
-        )
-        .sampler(wgpu::ShaderStage::FRAGMENT, sampler_filtering)
         .build(device)
 }
 
@@ -62,16 +53,11 @@ pub fn create_bind_group_buffer(
         .build(device, layout)
 }
 
-pub fn create_bind_group_texture(
+pub fn create_bind_group_render(
     device: &wgpu::Device,
-    layout: &wgpu::BindGroupLayout,
-    texture: &wgpu::TextureView,
-    sampler: &wgpu::Sampler)
+    layout: &wgpu::BindGroupLayout)
 -> wgpu::BindGroup {
-    wgpu::BindGroupBuilder::new()
-        .texture_view(texture)
-        .sampler(sampler)
-        .build(device, layout)
+    wgpu::BindGroupBuilder::new().build(device, layout)
 }
 
 pub fn create_pipeline_layout(

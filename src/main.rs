@@ -2,7 +2,7 @@ use nannou::prelude::*;
 
 mod gpu_create;
 use gpu_create::{create_bind_group_buffer, create_bind_group_layout_buffer,
-                 create_bind_group_texture, create_bind_group_layout_texture,
+                 create_bind_group_render, create_bind_group_layout_render,
                  create_render_pipeline, create_pipeline_layout,
                  Uniforms, Vertex};
 
@@ -54,25 +54,9 @@ fn model(app: &App) -> Model {
         wgpu::shader_from_spirv_bytes(
             device, include_bytes!("../Shader/render.frag.spv"));
 
-    let texture = wgpu::TextureBuilder::new()
-                  .size([size_x, size_y])
-                  .usage(wgpu::TextureUsage::RENDER_ATTACHMENT |
-                         wgpu::TextureUsage::SAMPLED)
-                  .sample_count(msaa_samples)
-                  .format(wgpu::TextureFormat::Rgba16Float)
-                  .build(device);
-    let texture_view = texture.view().build();
-
-    // Create the sampler for sampling from the source texture.
-    let sampler_desc = wgpu::SamplerBuilder::new().into_descriptor();
-    let sampler_filtering = wgpu::sampler_filtering(&sampler_desc);
-    let sampler = device.create_sampler(&sampler_desc);
-
     let bind_group_layout =
-        create_bind_group_layout_texture(device, texture_view.sample_type(),
-                                         sampler_filtering);
-    let bind_group = create_bind_group_texture(device, &bind_group_layout,
-                                               &texture_view, &sampler);
+        create_bind_group_layout_render(device);
+    let bind_group = create_bind_group_render(device, &bind_group_layout);
     let pipeline_layout = create_pipeline_layout(device, &bind_group_layout);
     let render_pipeline = create_render_pipeline(
         device,
