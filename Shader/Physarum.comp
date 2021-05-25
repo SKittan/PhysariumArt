@@ -1,0 +1,23 @@
+#version 450
+
+layout(local_size_x = 256) in;
+
+layout(set = 0, binding = 0) buffer Buffer {
+    float[] slime;
+};
+layout(set = 0, binding = 1) uniform Uniforms {
+    uint nAgents;
+    uint sizeX;
+    uint sizeY;
+};
+
+
+float rnd(float idx) {
+    vec2 xy = vec2(float(idx)*0.5, float(idx)*1.5);
+    return fract(sin(dot(xy, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+void main() {
+    uint index = gl_LocalInvocationIndex;
+    slime[index] = rnd(float(index));
+}

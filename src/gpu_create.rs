@@ -10,13 +10,22 @@ pub struct Vertex {
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct Uniforms {
-    x_size: u32,
-    y_size: f32,
+pub struct Uniforms {  // parameter
+    pub n_agents: u32,
+    pub size_x: u32,
+    pub size_y: u32,
+}
+
+pub struct Physarum {
+    pub slime: wgpu::Buffer,
+    pub slime_size: wgpu::BufferAddress,
+    pub uniform_buffer: wgpu::Buffer,
+    pub bind_group: wgpu::BindGroup,
+    pub pipeline: wgpu::ComputePipeline
 }
 
 
-pub fn create_bind_group_layout_buffer(device: &wgpu::Device)
+pub fn create_bind_group_layout_compute(device: &wgpu::Device)
 -> wgpu::BindGroupLayout
 {
     let storage_dynamic = false;
@@ -34,18 +43,29 @@ pub fn create_bind_group_layout_buffer(device: &wgpu::Device)
 
 pub fn create_bind_group_layout_render(
     device: &wgpu::Device)
--> wgpu::BindGroupLayout {
+-> wgpu::BindGroupLayout
+{
+    let storage_dynamic = false;
+    let storage_readonly = true;
+    let uniform_dynamic = false;
     wgpu::BindGroupLayoutBuilder::new()
+        .storage_buffer(
+            wgpu::ShaderStage::FRAGMENT,
+            storage_dynamic,
+            storage_readonly,
+        )
+        .uniform_buffer(wgpu::ShaderStage::FRAGMENT, uniform_dynamic)
         .build(device)
 }
 
-pub fn create_bind_group_buffer(
+pub fn create_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     buffer: &wgpu::Buffer,
     buffer_size: wgpu::BufferAddress,
     uniform_buffer: &wgpu::Buffer)
--> wgpu::BindGroup {
+-> wgpu::BindGroup
+{
     let buffer_size_bytes = std::num::NonZeroU64::new(buffer_size).unwrap();
     wgpu::BindGroupBuilder::new()
         .buffer_bytes(buffer, 0, Some(buffer_size_bytes))
@@ -53,23 +73,32 @@ pub fn create_bind_group_buffer(
         .build(device, layout)
 }
 
-pub fn create_bind_group_render(
-    device: &wgpu::Device,
-    layout: &wgpu::BindGroupLayout)
--> wgpu::BindGroup {
-    wgpu::BindGroupBuilder::new().build(device, layout)
-}
-
 pub fn create_pipeline_layout(
     device: &wgpu::Device,
     bind_group_layout: &wgpu::BindGroupLayout)
--> wgpu::PipelineLayout {
+-> wgpu::PipelineLayout
+{
     let desc = wgpu::PipelineLayoutDescriptor {
         label: None,
         bind_group_layouts: &[&bind_group_layout],
         push_constant_ranges: &[],
     };
     device.create_pipeline_layout(&desc)
+}
+
+pub fn create_compute_pipeline(
+    device: &wgpu::Device,
+    layout: &wgpu::PipelineLayout,
+    cs_mod: &wgpu::ShaderModule,
+) -> wgpu::ComputePipeline
+{
+    let desc = wgpu::ComputePipelineDescriptor {
+        label: Some("ComputePipeline"),
+        layout: Some(layout),
+        module: &cs_mod,
+        entry_point: "main",
+    };
+    device.create_compute_pipeline(&desc)
 }
 
 pub fn create_render_pipeline(
@@ -79,7 +108,8 @@ pub fn create_render_pipeline(
     fs_mod: &wgpu::ShaderModule,
     dst_format: wgpu::TextureFormat,
     sample_count: u32)
--> wgpu::RenderPipeline {
+-> wgpu::RenderPipeline
+{
     wgpu::RenderPipelineBuilder::from_layout(layout, vs_mod)
         .fragment_shader(fs_mod)
         .color_format(dst_format)

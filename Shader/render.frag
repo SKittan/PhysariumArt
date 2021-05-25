@@ -4,11 +4,18 @@
 layout(location = 0) in vec2 tex_coords;
 layout(location = 0) out vec4 f_color;
 
-
-float rnd(vec2 xy) {
-    return fract(sin(dot(xy, vec2(12.9898, 78.233))) * 43758.5453);
-}
+layout(set = 0, binding = 0) readonly buffer Buffer {
+    float[] slime;
+};
+layout(set = 0, binding = 1) uniform Uniforms {
+    uint nAgents;
+    uint sizeX;
+    uint sizeY;
+};
 
 void main() {
-    f_color = vec4(vec3(rnd(tex_coords)), 1.);
+    uint x = uint(tex_coords.x*sizeX);
+    uint y = uint(tex_coords.y*sizeY);
+    uint index = x*y + y;
+    f_color = vec4(vec3(slime[index]), 1.);
 }
