@@ -18,6 +18,10 @@ float rnd(float idx) {
 }
 
 void main() {
-    uint index = gl_LocalInvocationIndex;
-    slime[index] = rnd(float(index));
+    uint len = (sizeX * sizeY / 256);
+    uint i0 = gl_LocalInvocationIndex * len;
+
+    for(uint i=i0; i<(i0+len); i++){
+        slime[i] = 1.0;//rnd(float(i0));
+    }
 }

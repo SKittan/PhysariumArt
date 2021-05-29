@@ -139,6 +139,7 @@ fn model(app: &App) -> Model {
 fn view(app: &App, model: &Model, frame: Frame) {
     let window = app.main_window();
     let device = window.swap_chain_device();
+
     // Compute pass
     let c_desc = wgpu::CommandEncoderDescriptor {
         label: Some("Physarun Compute Encoder")
