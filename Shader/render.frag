@@ -16,6 +16,6 @@ layout(set = 0, binding = 1) uniform Uniforms {
 void main() {
     uint x = uint(tex_coords.x*sizeX);
     uint y = uint(tex_coords.y*sizeY);
-    uint index = x*y + y;
+    uint index = x + y*sizeX;
     f_color = vec4(vec3(slime[index]), 1.);
 }
