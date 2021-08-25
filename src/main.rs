@@ -1,7 +1,9 @@
 use nannou::prelude::*;
 
 mod gpu_create;
-use gpu_create::{create_bind_group, create_bind_group_layout_compute,
+use gpu_create::{create_compute_bind_group,
+                 create_bind_group_layout_compute,
+                 create_render_bind_group,
                  create_bind_group_layout_render,
                  create_compute_pipeline, create_render_pipeline,
                  create_pipeline_layout,
@@ -37,6 +39,7 @@ fn main() {
 
 fn model(app: &App) -> Model {
     let (size_x, size_y) = (512, 512);
+    let n_agents: usize = 10;//24;
 
     let w_id = app
         .new_window()
@@ -53,6 +56,19 @@ fn model(app: &App) -> Model {
     let cs_mod =
     wgpu::shader_from_spirv_bytes(
         device, include_bytes!("../Shader/Physarum.comp.spv"));
+    // Buffer for physarum agents
+    // position + sensor, heading
+    let agent_size = ((6 * std::mem::size_of::<f32>() +
+                       8 * std::mem::size_of::<bool>()) * n_agents)
+                     as wgpu::BufferAddress;
+    let agents = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Physarum Agents"),
+        size: agent_size,
+        usage:  wgpu::BufferUsage::STORAGE |
+                wgpu::BufferUsage::COPY_DST |
+                wgpu::BufferUsage::COPY_SRC,
+        mapped_at_creation: false,
+    });
     // Buffer for slime concentration
     let slime_size =
         ((size_x*size_y) as usize *
@@ -67,7 +83,7 @@ fn model(app: &App) -> Model {
     });
 
     // Buffer for parameter
-    let uniforms = Uniforms {n_agents: 100, size_x, size_y};
+    let uniforms = Uniforms {n_agents, size_x, size_y};
     let uniforms_bytes = uniforms_as_bytes(&uniforms);
     let usage = wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST;
     let uniform_buffer = device.create_buffer_init(&BufferInitDescriptor {
@@ -77,12 +93,14 @@ fn model(app: &App) -> Model {
     });
 
     let bind_group_layout_c = create_bind_group_layout_compute(device);
-    let bind_group_c = create_bind_group(device,
-                                         &bind_group_layout_c,
-                                         &slime, slime_size,
-                                         &uniform_buffer);
+    let bind_group_c = create_compute_bind_group(device,
+                                                 &bind_group_layout_c,
+                                                 &agents, agent_size,
+                                                 &slime, slime_size,
+                                                 &uniform_buffer);
     let pipeline_layout_c = create_pipeline_layout(&device,
-                                                   &bind_group_layout_c);
+                                                   &bind_group_layout_c,
+                                                   "Physarum Compute");
     let compute_pipeline = create_compute_pipeline(&device,
                                                    &pipeline_layout_c,
                                                    &cs_mod);
@@ -97,12 +115,13 @@ fn model(app: &App) -> Model {
 
     let bind_group_layout_r =
         create_bind_group_layout_render(device);
-    let bind_group_r = create_bind_group(device,
-                                         &bind_group_layout_r,
-                                         &slime, slime_size,
-                                         &uniform_buffer);
+    let bind_group_r = create_render_bind_group(device,
+                                                &bind_group_layout_r,
+                                                &slime, slime_size,
+                                                &uniform_buffer);
     let pipeline_layout_r = create_pipeline_layout(device,
-                                                   &bind_group_layout_r);
+                                                   &bind_group_layout_r,
+                                                   "Physarum Render");
     let render_pipeline = create_render_pipeline(
         device,
         &pipeline_layout_r,
@@ -121,6 +140,8 @@ fn model(app: &App) -> Model {
     });
 
     let physarum = Physarum {
+        agents,
+        agent_size,
         slime,
         slime_size,
         uniform_buffer,
