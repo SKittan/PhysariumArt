@@ -11,17 +11,22 @@ pub struct Vertex {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Uniforms {  // parameter
-    pub n_agents: u32,
+    pub n_agents: usize,
     pub size_x: u32,
     pub size_y: u32,
 }
 
 pub struct Physarum {
+    pub agents: wgpu::Buffer,
+    pub agent_size: wgpu::BufferAddress,
     pub slime: wgpu::Buffer,
     pub slime_size: wgpu::BufferAddress,
     pub uniform_buffer: wgpu::Buffer,
-    pub bind_group: wgpu::BindGroup,
-    pub pipeline: wgpu::ComputePipeline
+    pub bind_group_physarum: wgpu::BindGroup,
+    pub bind_group_slime: wgpu::BindGroup,
+    pub compute_physarum: wgpu::ComputePipeline,
+    pub compute_dissipation: wgpu::ComputePipeline,
+    pub compute_decay: wgpu::ComputePipeline
 }
 
 
@@ -32,6 +37,11 @@ pub fn create_bind_group_layout_compute(device: &wgpu::Device)
     let storage_readonly = false;
     let uniform_dynamic = false;
     wgpu::BindGroupLayoutBuilder::new()
+        .storage_buffer(
+            wgpu::ShaderStage::COMPUTE,
+            storage_dynamic,
+            storage_readonly,
+        )
         .storage_buffer(
             wgpu::ShaderStage::COMPUTE,
             storage_dynamic,
@@ -58,7 +68,43 @@ pub fn create_bind_group_layout_render(
         .build(device)
 }
 
-pub fn create_bind_group(
+pub fn create_physarum_bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    agents: &wgpu::Buffer,
+    agent_size: wgpu::BufferAddress,
+    slime: &wgpu::Buffer,
+    slime_size: wgpu::BufferAddress,
+    uniform_buffer: &wgpu::Buffer)
+-> wgpu::BindGroup
+{
+    let agent_size_bytes = std::num::NonZeroU64::new(agent_size).unwrap();
+    let slime_size_bytes = std::num::NonZeroU64::new(slime_size).unwrap();
+    wgpu::BindGroupBuilder::new()
+        .buffer_bytes(agents, 0, Some(agent_size_bytes))
+        .buffer_bytes(slime, agent_size, Some(slime_size_bytes))
+        .buffer::<Uniforms>(uniform_buffer, 0..1)
+        .build(device, layout)
+}
+
+pub fn create_slime_bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    slime: &wgpu::Buffer,
+    slime_dissipate: &wgpu::Buffer,  // intermediate result for dissipation
+    slime_size: wgpu::BufferAddress,
+    uniform_buffer: &wgpu::Buffer)
+-> wgpu::BindGroup
+{
+    let slime_size_bytes = std::num::NonZeroU64::new(slime_size).unwrap();
+    wgpu::BindGroupBuilder::new()
+        .buffer_bytes(slime, 0, Some(slime_size_bytes))
+        .buffer_bytes(slime_dissipate, slime_size, Some(slime_size_bytes))
+        .buffer::<Uniforms>(uniform_buffer, 0..1)
+        .build(device, layout)
+}
+
+pub fn create_render_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     buffer: &wgpu::Buffer,
@@ -75,11 +121,12 @@ pub fn create_bind_group(
 
 pub fn create_pipeline_layout(
     device: &wgpu::Device,
-    bind_group_layout: &wgpu::BindGroupLayout)
+    bind_group_layout: &wgpu::BindGroupLayout,
+    label: &str)
 -> wgpu::PipelineLayout
 {
     let desc = wgpu::PipelineLayoutDescriptor {
-        label: None,
+        label: Some(label),
         bind_group_layouts: &[&bind_group_layout],
         push_constant_ranges: &[],
     };
@@ -90,10 +137,11 @@ pub fn create_compute_pipeline(
     device: &wgpu::Device,
     layout: &wgpu::PipelineLayout,
     cs_mod: &wgpu::ShaderModule,
+    label: &str
 ) -> wgpu::ComputePipeline
 {
     let desc = wgpu::ComputePipelineDescriptor {
-        label: Some("ComputePipeline"),
+        label: Some(label),
         layout: Some(layout),
         module: &cs_mod,
         entry_point: "main",
@@ -113,7 +161,7 @@ pub fn create_render_pipeline(
     wgpu::RenderPipelineBuilder::from_layout(layout, vs_mod)
         .fragment_shader(fs_mod)
         .color_format(dst_format)
-        .add_vertex_buffer::<Vertex>(&wgpu::vertex_attr_array![0 => Float2])
+        .add_vertex_buffer::<Vertex>(&wgpu::vertex_attr_array![0 => Float32])
         .sample_count(sample_count)
         .primitive_topology(wgpu::PrimitiveTopology::TriangleStrip)
         .build(device)
