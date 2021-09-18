@@ -101,7 +101,7 @@ fn model(app: &App) -> Model {
         usage,
     });
 
-    // Cimpute Pipelines //
+    // Compute Pipelines //
     //____________________//
     // Physarum
     let bind_group_layout_physarum = create_bind_group_layout_compute(device);
