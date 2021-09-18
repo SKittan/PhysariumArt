@@ -1,4 +1,5 @@
 use nannou::prelude::*;
+use nannou::wgpu::BIND_BUFFER_ALIGNMENT;
 
 
 // The vertex type that we will use to represent a point on our triangle.
@@ -82,7 +83,10 @@ pub fn create_physarum_bind_group(
     let slime_size_bytes = std::num::NonZeroU64::new(slime_size).unwrap();
     wgpu::BindGroupBuilder::new()
         .buffer_bytes(agents, 0, Some(agent_size_bytes))
-        .buffer_bytes(slime, agent_size, Some(slime_size_bytes))
+        .buffer_bytes(slime,
+                      agent_size - agent_size % BIND_BUFFER_ALIGNMENT +
+                      BIND_BUFFER_ALIGNMENT,
+                      Some(slime_size_bytes))
         .buffer::<Uniforms>(uniform_buffer, 0..1)
         .build(device, layout)
 }
@@ -99,7 +103,10 @@ pub fn create_slime_bind_group(
     let slime_size_bytes = std::num::NonZeroU64::new(slime_size).unwrap();
     wgpu::BindGroupBuilder::new()
         .buffer_bytes(slime, 0, Some(slime_size_bytes))
-        .buffer_bytes(slime_dissipate, slime_size, Some(slime_size_bytes))
+        .buffer_bytes(slime_dissipate,
+                      slime_size - slime_size % BIND_BUFFER_ALIGNMENT +
+                      BIND_BUFFER_ALIGNMENT,
+                      Some(slime_size_bytes))
         .buffer::<Uniforms>(uniform_buffer, 0..1)
         .build(device, layout)
 }
