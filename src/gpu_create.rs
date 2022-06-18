@@ -1,6 +1,4 @@
 use nannou::prelude::*;
-use nannou::wgpu::BIND_BUFFER_ALIGNMENT;
-
 
 // The vertex type that we will use to represent a point on our triangle.
 #[repr(C)]
@@ -39,16 +37,16 @@ pub fn create_bind_group_layout_compute(device: &wgpu::Device)
     let uniform_dynamic = false;
     wgpu::BindGroupLayoutBuilder::new()
         .storage_buffer(
-            wgpu::ShaderStage::COMPUTE,
+            wgpu::ShaderStages::COMPUTE,
             storage_dynamic,
             storage_readonly,
         )
         .storage_buffer(
-            wgpu::ShaderStage::COMPUTE,
+            wgpu::ShaderStages::COMPUTE,
             storage_dynamic,
             storage_readonly,
         )
-        .uniform_buffer(wgpu::ShaderStage::COMPUTE, uniform_dynamic)
+        .uniform_buffer(wgpu::ShaderStages::COMPUTE, uniform_dynamic)
         .build(device)
 }
 
@@ -61,11 +59,11 @@ pub fn create_bind_group_layout_render(
     let uniform_dynamic = false;
     wgpu::BindGroupLayoutBuilder::new()
         .storage_buffer(
-            wgpu::ShaderStage::FRAGMENT,
+            wgpu::ShaderStages::FRAGMENT,
             storage_dynamic,
             storage_readonly,
         )
-        .uniform_buffer(wgpu::ShaderStage::FRAGMENT, uniform_dynamic)
+        .uniform_buffer(wgpu::ShaderStages::FRAGMENT, uniform_dynamic)
         .build(device)
 }
 
@@ -84,8 +82,7 @@ pub fn create_physarum_bind_group(
     wgpu::BindGroupBuilder::new()
         .buffer_bytes(agents, 0, Some(agent_size_bytes))
         .buffer_bytes(slime,
-                      agent_size - agent_size % BIND_BUFFER_ALIGNMENT +
-                      BIND_BUFFER_ALIGNMENT,
+                      agent_size - agent_size % 256 + 256,
                       Some(slime_size_bytes))
         .buffer::<Uniforms>(uniform_buffer, 0..1)
         .build(device, layout)
@@ -104,8 +101,7 @@ pub fn create_slime_bind_group(
     wgpu::BindGroupBuilder::new()
         .buffer_bytes(slime, 0, Some(slime_size_bytes))
         .buffer_bytes(slime_dissipate,
-                      slime_size - slime_size % BIND_BUFFER_ALIGNMENT +
-                      BIND_BUFFER_ALIGNMENT,
+                      slime_size - slime_size % 256 + 256,
                       Some(slime_size_bytes))
         .buffer::<Uniforms>(uniform_buffer, 0..1)
         .build(device, layout)

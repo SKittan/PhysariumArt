@@ -49,14 +49,13 @@ fn model(app: &App) -> Model {
         .build()
         .unwrap();
     let window = app.window(w_id).unwrap();
-    let device = window.swap_chain_device();
+    let device = window.device();
     let format = Frame::TEXTURE_FORMAT;
     let msaa_samples = window.msaa_samples();
 
     // Compute pipeline
-    let cs_mod =
-    wgpu::shader_from_spirv_bytes(
-        device, include_bytes!("../Shader/Physarum.comp.spv"));
+    let cs_desc = wgpu::include_wgsl!("../Shader/Physarum.wgsl");
+    let cs_mod = device.create_shader_module(&cs_desc);
     // Buffer for physarum agents
     // position + sensor, heading
     let agent_size = ((6 * std::mem::size_of::<f32>() +
@@ -65,9 +64,9 @@ fn model(app: &App) -> Model {
     let agents = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Physarum Agents"),
         size: agent_size,
-        usage:  wgpu::BufferUsage::STORAGE |
-                wgpu::BufferUsage::COPY_DST |
-                wgpu::BufferUsage::COPY_SRC,
+        usage:  wgpu::BufferUsages::STORAGE |
+                wgpu::BufferUsages::COPY_DST |
+                wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
     // Buffer for slime concentration
@@ -77,24 +76,24 @@ fn model(app: &App) -> Model {
     let slime = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("SLIME"),
         size: slime_size,
-        usage: wgpu::BufferUsage::STORAGE |
-               wgpu::BufferUsage::COPY_DST |
-               wgpu::BufferUsage::COPY_SRC,
+        usage: wgpu::BufferUsages::STORAGE |
+               wgpu::BufferUsages::COPY_DST |
+               wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
     let slime_dissipate = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("SLIME dissipation"),
         size: slime_size,
-        usage: wgpu::BufferUsage::STORAGE |
-               wgpu::BufferUsage::COPY_DST |
-               wgpu::BufferUsage::COPY_SRC,
+        usage: wgpu::BufferUsages::STORAGE |
+               wgpu::BufferUsages::COPY_DST |
+               wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
 
     // Buffer for parameter
     let uniforms = Uniforms {n_agents, size_x, size_y};
     let uniforms_bytes = uniforms_as_bytes(&uniforms);
-    let usage = wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST;
+    let usage = wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST;
     let uniform_buffer = device.create_buffer_init(&BufferInitDescriptor {
         label: Some("uniform-buffer"),
         contents: uniforms_bytes,
@@ -131,12 +130,10 @@ fn model(app: &App) -> Model {
         &device, &pipeline_layout_slime, &cs_mod, "Slime decay Pipeline");
 
     // Render Pipeline
-    let vs_mod =
-        wgpu::shader_from_spirv_bytes
-            (device, include_bytes!("../Shader/passThrough.vert.spv"));
-    let fs_mod =
-        wgpu::shader_from_spirv_bytes(
-            device, include_bytes!("../Shader/render.frag.spv"));
+    let vs_desc = wgpu::include_wgsl!("../Shader/passThrough.wgsl");
+    let vs_mod = device.create_shader_module(&vs_desc);
+    let fs_desc = wgpu::include_wgsl!("../Shader/render.wgsl");
+    let fs_mod = device.create_shader_module(&fs_desc);
 
     let bind_group_layout_r =
         create_bind_group_layout_render(device);
@@ -157,7 +154,7 @@ fn model(app: &App) -> Model {
     );
 
     let vertices_bytes = vertices_as_bytes(&VERTICES[..]);
-    let usage = wgpu::BufferUsage::VERTEX;
+    let usage = wgpu::BufferUsages::VERTEX;
     let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
         contents: vertices_bytes,
@@ -187,7 +184,7 @@ fn model(app: &App) -> Model {
 
 fn view(app: &App, model: &Model, frame: Frame) {
     let window = app.main_window();
-    let device = window.swap_chain_device();
+    let device = window.device();
 
     // Compute pass
     let c_p_desc = wgpu::CommandEncoderDescriptor {
@@ -203,7 +200,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
         c_p_pass.set_bind_group(0, &model.physarum.bind_group_physarum, &[]);
         c_p_pass.dispatch(256, 1, 1);
     }
-    window.swap_chain_queue().submit(Some(c_p_encoder.finish()));
+    window.queue().submit(Some(c_p_encoder.finish()));
 
     let c_sdi_desc = wgpu::CommandEncoderDescriptor {
         label: Some("Slime Dissipation Encoder")
@@ -218,7 +215,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
         c_sdi_pass.set_bind_group(0, &model.physarum.bind_group_slime, &[]);
         c_sdi_pass.dispatch(256, 1, 1);
     }
-    window.swap_chain_queue().submit(Some(c_sdi_encoder.finish()));
+    window.queue().submit(Some(c_sdi_encoder.finish()));
 
     let c_sde_desc = wgpu::CommandEncoderDescriptor {
         label: Some("Slime decay Encoder")
@@ -233,7 +230,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
         c_sde_pass.set_bind_group(0, &model.physarum.bind_group_slime, &[]);
         c_sde_pass.dispatch(256, 1, 1);
     }
-    window.swap_chain_queue().submit(Some(c_sde_encoder.finish()));
+    window.queue().submit(Some(c_sde_encoder.finish()));
 
     // Render pass
     let mut r_encoder = frame.command_encoder();
