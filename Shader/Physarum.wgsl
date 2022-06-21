@@ -1,22 +1,24 @@
-#version 450
+[[group(0), binding(0)]]
+var<storage, read_write> agents: array<f32>;
 
-layout(local_size_x = 256) in;
+[[group(0), binding(1)]]
+var<storage, read_write> slime: array<f32>;
 
-layout(set = 0, binding = 0) buffer Buffer {
-    float[] slime;
+[[block]]
+struct Uniforms {
+    nAgents: u32;
+    sizeX: u32;
+    sizeY: u32;
 };
-layout(set = 0, binding = 1) uniform Uniforms {
-    uint nAgents;
-    uint sizeX;
-    uint sizeY;
-};
+[[group(0), binding(2)]]
+var<uniform> uniforms: Uniforms;
 
+[[stage(compute), workgroup_size(256)]]
+fn main([[builtin(local_invocation_index)]] liIdx: u32) {
+    let len = u32(f32(uniforms.sizeX * uniforms.sizeY) / 256.);
+    let i0 = liIdx * len;
 
-void main() {
-    uint len = sizeX * sizeY / 256;
-    uint i0 = gl_LocalInvocationIndex * len;
-
-    for(uint i=i0; i<(i0+len); i++){
-        slime[i] = float(i)/float(sizeX * sizeY);
+    for(var i: u32 = i0; i<(i0+len); i=i+u32(1)){
+        slime[i] = f32(i)/f32(uniforms.sizeX * uniforms.sizeY);
     }
 }

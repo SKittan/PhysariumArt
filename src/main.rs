@@ -64,9 +64,7 @@ fn model(app: &App) -> Model {
     let agents = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Physarum Agents"),
         size: agent_size,
-        usage:  wgpu::BufferUsages::STORAGE |
-                wgpu::BufferUsages::COPY_DST |
-                wgpu::BufferUsages::COPY_SRC,
+        usage:  wgpu::BufferUsages::STORAGE,
         mapped_at_creation: false,
     });
     // Buffer for slime concentration
@@ -76,17 +74,13 @@ fn model(app: &App) -> Model {
     let slime = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("SLIME"),
         size: slime_size,
-        usage: wgpu::BufferUsages::STORAGE |
-               wgpu::BufferUsages::COPY_DST |
-               wgpu::BufferUsages::COPY_SRC,
+        usage: wgpu::BufferUsages::STORAGE,
         mapped_at_creation: false,
     });
     let slime_dissipate = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("SLIME dissipation"),
         size: slime_size,
-        usage: wgpu::BufferUsages::STORAGE |
-               wgpu::BufferUsages::COPY_DST |
-               wgpu::BufferUsages::COPY_SRC,
+        usage: wgpu::BufferUsages::STORAGE,
         mapped_at_creation: false,
     });
 

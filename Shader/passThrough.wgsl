@@ -1,10 +1,15 @@
-#version 450
 
-layout(location = 0) in vec2 position;
-layout(location = 0) out vec2 tex_coords;
+struct VertexOutput {
+    [[builtin(position)]] clip_position: vec4<f32>;
+};
 
-void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
-    tex_coords = vec2((position.x + 1.)*0.5,
-                      1.0 - (position.y + 1.)*0.5);
+[[stage(vertex)]]
+fn vs_main(
+    [[builtin(vertex_index)]] in_vertex_index: u32,
+) -> VertexOutput {
+    var out: VertexOutput;
+    let x = f32(1 - i32(in_vertex_index)) * 0.5;
+    let y = f32(i32(in_vertex_index & 1u) * 2 - 1) * 0.5;
+    out.clip_position = vec4<f32>(x, y, 0.0, 1.0);
+    return out;
 }

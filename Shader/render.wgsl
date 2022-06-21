@@ -1,21 +1,30 @@
+[[location(0)]]
+var<storage, read> tex_coords: vec2<f32>;
+[[location(0)]]
+var<storage, read_write> f_color: vec4<f32>;
 
-#version 450
+[[group(0), binding(0)]]
+var<storage, read> slime: array<f32>;
 
-layout(location = 0) in vec2 tex_coords;
-layout(location = 0) out vec4 f_color;
-
-layout(set = 0, binding = 0) readonly buffer Buffer {
-    float[] slime;
+[[block]]
+struct Uniforms {
+    nAgents: u32;
+    sizeX: u32;
+    sizeY: u32;
 };
-layout(set = 0, binding = 1) uniform Uniforms {
-    uint nAgents;
-    uint sizeX;
-    uint sizeY;
+[[group(0), binding(1)]]
+var<uniform> uniforms: Uniforms;
+
+
+struct FragmentOutput {
+    [[location(0)]] f_color: vec4<f32>;
 };
 
-void main() {
-    uint x = uint(tex_coords.x*sizeX);
-    uint y = uint(tex_coords.y*sizeY);
-    uint index = x + y*sizeX;
-    f_color = vec4(vec3(slime[index]), 1.);
+[[stage(fragment)]]
+fn main() -> FragmentOutput {
+   let x: u32 = u32(tex_coords.x*f32(uniforms.sizeX));
+   let y: u32 = u32(tex_coords.y*f32(uniforms.sizeY));
+   let index: u32 = x + y*uniforms.sizeX;
+
+    return FragmentOutput(vec4<f32>(vec3<f32>(slime[index]), 1.));
 }
