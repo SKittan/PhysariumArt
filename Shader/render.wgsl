@@ -1,10 +1,9 @@
-[[location(0)]]
-var<storage, read> tex_coords: vec2<f32>;
-[[location(0)]]
-var<storage, read_write> f_color: vec4<f32>;
-
+[[block]]
+struct Slime {
+    c: [[stride(4)]] array<f32>; // concentration
+};
 [[group(0), binding(0)]]
-var<storage, read> slime: array<f32>;
+var<storage, read> slime: Slime;
 
 [[block]]
 struct Uniforms {
@@ -16,15 +15,14 @@ struct Uniforms {
 var<uniform> uniforms: Uniforms;
 
 
-struct FragmentOutput {
-    [[location(0)]] f_color: vec4<f32>;
-};
-
 [[stage(fragment)]]
-fn main() -> FragmentOutput {
-   let x: u32 = u32(tex_coords.x*f32(uniforms.sizeX));
-   let y: u32 = u32(tex_coords.y*f32(uniforms.sizeY));
-   let index: u32 = x + y*uniforms.sizeX;
+fn main([[location(0)]] tex_coords: vec2<f32>) -> [[location(0)]] vec4<f32> {
+    let x: u32 = u32(tex_coords.x*f32(uniforms.sizeX));
+    let y: u32 = u32(tex_coords.y*f32(uniforms.sizeY));
+    let index: u32 = x + y*uniforms.sizeX;
 
-    return FragmentOutput(vec4<f32>(vec3<f32>(slime[index]), 1.));
+    // Debug: Visualize render area
+    let c: f32 = f32(x+y) / f32(uniforms.sizeX*uniforms.sizeY);
+    return vec4<f32>(vec3<f32>(slime.c[index] + c), 1.);
+
 }
