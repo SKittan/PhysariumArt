@@ -1,10 +1,14 @@
-[[block]]
-struct Agents {
+struct Agent {
     x: f32;
     y: f32;
     phi: f32;
     sens: u32;  // sensor values: 0, 1, 2, 4, 1+2, 2+4
 };
+[[block]]
+struct Agents {
+    agents: array<Agent>;
+};
+
 [[group(0), binding(0)]]
 var<storage, read_write> agents: Agents;
 
@@ -24,12 +28,21 @@ struct Uniforms {
 [[group(0), binding(2)]]
 var<uniform> uniforms: Uniforms;
 
-[[stage(compute), workgroup_size(256)]]
-fn main([[builtin(local_invocation_index)]] liIdx: u32) {
+
+[[stage(compute), workgroup_size(10)]]
+fn main([[builtin(local_invocation_index)]] liIdx: u32)
+{
+    let pi = 3.14159;
+
+    agents.agents[liIdx].phi= cos(sin(0.1 * f32(liIdx) * 95123878123.3214) *
+                            2318746123.897631) * 2. * pi;
+    agents.agents[liIdx].x= agents.agents[liIdx].x+ cos(agents.agents[liIdx].phi);
+    agents.agents[liIdx].y= agents.agents[liIdx].y+ sin(agents.agents[liIdx].phi);
+
     let len = u32(f32(uniforms.sizeX * uniforms.sizeY) / 256.);
     let i0 = liIdx * len;
 
-    for(var i: u32 = i0; i<(i0+len); i=i+u32(1)){
-        slime.c[i] = f32(i)/f32(uniforms.sizeX * uniforms.sizeY);
-    }
+    let index: u32 = u32(round(agents.agents[liIdx].x+
+                               agents.agents[liIdx].y* f32(uniforms.sizeX)));
+    slime.c[index] = slime.c[index] + 0.1;
 }

@@ -21,8 +21,5 @@ fn main([[location(0)]] tex_coords: vec2<f32>) -> [[location(0)]] vec4<f32> {
     let y: u32 = u32(tex_coords.y*f32(uniforms.sizeY));
     let index: u32 = x + y*uniforms.sizeX;
 
-    // Debug: Visualize render area
-    let c: f32 = f32(x+y) / f32(uniforms.sizeX*uniforms.sizeY);
-    return vec4<f32>(vec3<f32>(slime.c[index] + c), 1.);
-
+    return vec4<f32>(vec3<f32>(slime.c[index]), 1.);
 }
