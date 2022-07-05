@@ -1,8 +1,8 @@
-use nannou::prelude::*;
+use nannou::{prelude::*};
 
 mod gpu_create;
 use gpu_create::{create_physarum_bind_group,
-                //  create_slime_bind_group,
+                 create_slime_bind_group,
                  create_bind_group_layout_compute,
                  create_render_bind_group,
                  create_bind_group_layout_render,
@@ -56,6 +56,8 @@ fn model(app: &App) -> Model {
     // Compute pipeline
     let cs_desc = wgpu::include_wgsl!("../Shader/Physarum.wgsl");
     let cs_mod = device.create_shader_module(&cs_desc);
+    let cs_slime_di_desc = wgpu::include_wgsl!("../Shader/SlimeDi.wgsl");
+    let cs_slime_di_mod = device.create_shader_module(&cs_slime_di_desc);
     // Buffer for physarum agents
     // x, y, phi, 3*sensor (bool) as u32 since bool not supported
     let agent_size = ((3 * std::mem::size_of::<f32>() +
@@ -64,31 +66,25 @@ fn model(app: &App) -> Model {
     let agents = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Physarum Agents"),
         size: agent_size,
-        usage:  wgpu::BufferUsages::STORAGE |
-                wgpu::BufferUsages::COPY_DST |
-                wgpu::BufferUsages::COPY_SRC,
+        usage:  wgpu::BufferUsages::STORAGE,
         mapped_at_creation: false,
     });
     // Buffer for slime concentration
-    let slime_size =
-        ((size_x*size_y) as usize *
-        std::mem::size_of::<f32>()) as wgpu::BufferAddress;
+    let xy_size: usize = (size_x * size_y) as usize;
+    let slime_size = (xy_size * std::mem::size_of::<f32>())
+                     as wgpu::BufferAddress;
     let slime = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("SLIME"),
         size: slime_size,
-        usage:  wgpu::BufferUsages::STORAGE |
-                wgpu::BufferUsages::COPY_DST |
-                wgpu::BufferUsages::COPY_SRC,
+        usage:  wgpu::BufferUsages::STORAGE,
         mapped_at_creation: false,
     });
-    // let slime_dissipate = device.create_buffer(&wgpu::BufferDescriptor {
-    //     label: Some("SLIME dissipation"),
-    //     size: slime_size,
-    //     usage:  wgpu::BufferUsages::STORAGE |
-    //             wgpu::BufferUsages::COPY_DST |
-    //             wgpu::BufferUsages::COPY_SRC,
-    //     mapped_at_creation: false,
-    // });
+    let slime_dissipate = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("SLIME dissipation"),
+        size: slime_size,
+        usage:  wgpu::BufferUsages::STORAGE,
+        mapped_at_creation: false,
+    });
 
     // Buffer for parameter
     let uniforms = Uniforms {n_agents, size_x, size_y};
@@ -103,10 +99,11 @@ fn model(app: &App) -> Model {
     // Compute Pipelines //
     //____________________//
     // Physarum
-    let bind_group_layout_physarum = create_bind_group_layout_compute(device);
+    let bind_group_layout_physarum = create_bind_group_layout_compute(device,
+                                                                      false);
     let bind_group_physarum = create_physarum_bind_group(
         device, &bind_group_layout_physarum, &agents, agent_size,
-        &slime, slime_size, &uniform_buffer);
+        &slime, &uniform_buffer);
     let pipeline_layout_physarum = create_pipeline_layout(
         &device, &bind_group_layout_physarum, "Physarum Compute");
     let physarum_pipeline = create_compute_pipeline(&device,
@@ -115,16 +112,18 @@ fn model(app: &App) -> Model {
                                                     "Physarum Pipeline");
     // Slime
     // dissipation
-    // let bind_group_layout_slime = create_bind_group_layout_compute(device);
-    // let bind_group_slime = create_slime_bind_group(device,
-    //                                                &bind_group_layout_slime,
-    //                                                &slime, &slime_dissipate,
-    //                                                slime_size,
-    //                                                &uniform_buffer);
-    // let pipeline_layout_slime = create_pipeline_layout(
-    //     &device, &bind_group_layout_slime, "Slime Layout");
-    // let slime_di_pipeline = create_compute_pipeline(
-    //     &device, &pipeline_layout_slime, &cs_mod, "Slime dissipation Pipeline");
+    let bind_group_layout_slime = create_bind_group_layout_compute(device,
+                                                                   true);
+    let bind_group_slime = create_slime_bind_group(device,
+                                                   &bind_group_layout_slime,
+                                                   &slime, &slime_dissipate,
+                                                   &xy_size,
+                                                   &uniform_buffer);
+    let pipeline_layout_slime = create_pipeline_layout(
+        &device, &bind_group_layout_slime, "Slime Layout");
+    let slime_di_pipeline = create_compute_pipeline(
+        &device, &pipeline_layout_slime, &cs_slime_di_mod,
+        "Slime dissipation Pipeline");
     // // decay
     // let slime_de_pipeline = create_compute_pipeline(
     //     &device, &pipeline_layout_slime, &cs_mod, "Slime decay Pipeline");
@@ -168,9 +167,9 @@ fn model(app: &App) -> Model {
         slime_size,
         uniform_buffer,
         bind_group_physarum,
-        // bind_group_slime,
+        bind_group_slime,
         compute_physarum: physarum_pipeline,
-        // compute_dissipation: slime_di_pipeline,
+        compute_dissipation: slime_di_pipeline,
         // compute_decay: slime_de_pipeline
     };
 
@@ -198,24 +197,24 @@ fn view(app: &App, model: &Model, frame: Frame) {
         let mut c_p_pass = c_p_encoder.begin_compute_pass(&c_p_pass_desc);
         c_p_pass.set_pipeline(&model.physarum.compute_physarum);
         c_p_pass.set_bind_group(0, &model.physarum.bind_group_physarum, &[]);
-        c_p_pass.dispatch(256, 1, 1);
+        c_p_pass.dispatch(10, 1, 1);
     }
     window.queue().submit(Some(c_p_encoder.finish()));
 
-    // let c_sdi_desc = wgpu::CommandEncoderDescriptor {
-    //     label: Some("Slime Dissipation Encoder")
-    // };
-    // let mut c_sdi_encoder = device.create_command_encoder(&c_sdi_desc);
-    // {
-    //     let c_sdi_pass_desc = wgpu::ComputePassDescriptor {
-    //         label: Some("Slime Dissipation Pass")
-    //     };
-    //     let mut c_sdi_pass = c_sdi_encoder.begin_compute_pass(&c_sdi_pass_desc);
-    //     c_sdi_pass.set_pipeline(&model.physarum.compute_dissipation);
-    //     c_sdi_pass.set_bind_group(0, &model.physarum.bind_group_slime, &[]);
-    //     c_sdi_pass.dispatch(256, 1, 1);
-    // }
-    // window.queue().submit(Some(c_sdi_encoder.finish()));
+    let c_sdi_desc = wgpu::CommandEncoderDescriptor {
+        label: Some("Slime Dissipation Encoder")
+    };
+    let mut c_sdi_encoder = device.create_command_encoder(&c_sdi_desc);
+    {
+        let c_sdi_pass_desc = wgpu::ComputePassDescriptor {
+            label: Some("Slime Dissipation Pass")
+        };
+        let mut c_sdi_pass = c_sdi_encoder.begin_compute_pass(&c_sdi_pass_desc);
+        c_sdi_pass.set_pipeline(&model.physarum.compute_dissipation);
+        c_sdi_pass.set_bind_group(0, &model.physarum.bind_group_slime, &[]);
+        c_sdi_pass.dispatch(10, 1, 1);
+    }
+    window.queue().submit(Some(c_sdi_encoder.finish()));
 
     // let c_sde_desc = wgpu::CommandEncoderDescriptor {
     //     label: Some("Slime decay Encoder")

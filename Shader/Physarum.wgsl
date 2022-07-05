@@ -8,9 +8,8 @@ struct Agent {
 struct Agents {
     agents: array<Agent>;
 };
-
 [[group(0), binding(0)]]
-var<storage, read_write> agents: Agents;
+var<storage, read_write> in: Agents;
 
 [[block]]
 struct Slime {
@@ -34,15 +33,15 @@ fn main([[builtin(local_invocation_index)]] liIdx: u32)
 {
     let pi = 3.14159;
 
-    agents.agents[liIdx].phi= cos(sin(0.1 * f32(liIdx) * 95123878123.3214) *
+    in.agents[liIdx].phi= cos(sin(0.1 * f32(liIdx) * 95123878123.3214) *
                             2318746123.897631) * 2. * pi;
-    agents.agents[liIdx].x= agents.agents[liIdx].x+ cos(agents.agents[liIdx].phi);
-    agents.agents[liIdx].y= agents.agents[liIdx].y+ sin(agents.agents[liIdx].phi);
+    in.agents[liIdx].x= in.agents[liIdx].x+ cos(in.agents[liIdx].phi);
+    in.agents[liIdx].y= in.agents[liIdx].y+ sin(in.agents[liIdx].phi);
 
     let len = u32(f32(uniforms.sizeX * uniforms.sizeY) / 256.);
     let i0 = liIdx * len;
 
-    let index: u32 = u32(round(agents.agents[liIdx].x+
-                               agents.agents[liIdx].y* f32(uniforms.sizeX)));
+    let index: u32 = u32(round(in.agents[liIdx].x+
+                               in.agents[liIdx].y* f32(uniforms.sizeX)));
     slime.c[index] = slime.c[index] + 0.1;
 }
