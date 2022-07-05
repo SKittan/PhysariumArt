@@ -22,14 +22,15 @@ pub struct Physarum {
     pub slime_size: wgpu::BufferAddress,
     pub uniform_buffer: wgpu::Buffer,
     pub bind_group_physarum: wgpu::BindGroup,
-    // pub bind_group_slime: wgpu::BindGroup,
+    pub bind_group_slime: wgpu::BindGroup,
     pub compute_physarum: wgpu::ComputePipeline,
-    // pub compute_dissipation: wgpu::ComputePipeline,
+    pub compute_dissipation: wgpu::ComputePipeline,
     // pub compute_decay: wgpu::ComputePipeline
 }
 
 
-pub fn create_bind_group_layout_compute(device: &wgpu::Device)
+pub fn create_bind_group_layout_compute(device: &wgpu::Device,
+                                        read_only_first: bool)
 -> wgpu::BindGroupLayout
 {
     let storage_dynamic = false;
@@ -39,7 +40,7 @@ pub fn create_bind_group_layout_compute(device: &wgpu::Device)
         .storage_buffer(
             wgpu::ShaderStages::COMPUTE,
             storage_dynamic,
-            storage_readonly,
+            read_only_first,
         )
         .storage_buffer(
             wgpu::ShaderStages::COMPUTE,
@@ -73,17 +74,13 @@ pub fn create_physarum_bind_group(
     agents: &wgpu::Buffer,
     agent_size: wgpu::BufferAddress,
     slime: &wgpu::Buffer,
-    slime_size: wgpu::BufferAddress,
     uniform_buffer: &wgpu::Buffer)
 -> wgpu::BindGroup
 {
-    let agent_size_bytes = std::num::NonZeroU64::new(agent_size).unwrap();
-    let _slime_size_bytes = std::num::NonZeroU64::new(slime_size).unwrap();
     wgpu::BindGroupBuilder::new()
-        .buffer_bytes(agents, 0, Some(agent_size_bytes))
+        .buffer_bytes(agents, 0, None)
         .buffer_bytes(slime,
-                      agent_size - agent_size % 256 + 256,
-                      None)  //Some(slime_size_bytes))
+                      agent_size - agent_size % 256 + 256, None)
         .buffer::<Uniforms>(uniform_buffer, 0..1)
         .build(device, layout)
 }
@@ -93,16 +90,13 @@ pub fn create_slime_bind_group(
     layout: &wgpu::BindGroupLayout,
     slime: &wgpu::Buffer,
     slime_dissipate: &wgpu::Buffer,  // intermediate result for dissipation
-    slime_size: wgpu::BufferAddress,
+    slime_range: &usize,
     uniform_buffer: &wgpu::Buffer)
 -> wgpu::BindGroup
 {
-    let slime_size_bytes = std::num::NonZeroU64::new(slime_size).unwrap();
     wgpu::BindGroupBuilder::new()
-        .buffer_bytes(slime, 0, Some(slime_size_bytes))
-        .buffer_bytes(slime_dissipate,
-                      slime_size - slime_size % 256 + 256,
-                      None)  // Some(slime_size_bytes))
+        .buffer::<f32>(slime, 0..*slime_range)
+        .buffer::<f32>(slime_dissipate, 0..*slime_range)
         .buffer::<Uniforms>(uniform_buffer, 0..1)
         .build(device, layout)
 }
