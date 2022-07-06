@@ -13,6 +13,7 @@ struct Uniforms {
     nAgents: u32;
     sizeX: u32;
     sizeY: u32;
+    decay: f32;
 };
 [[group(0), binding(2)]]
 var<uniform> uniforms: Uniforms;
