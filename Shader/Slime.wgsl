@@ -50,6 +50,6 @@ fn main([[builtin(local_invocation_index)]] liIdx: u32)
                 slime_out.c[i0] = slime_out.c[i0] + slime_in.c[idx];
         }}
         // calculate mean and decay
-        slime_out.c[i0] = slime_out.c[i0] / 9. * uniforms.decay;
+        slime_out.c[i0] = 1.;
     }
 }

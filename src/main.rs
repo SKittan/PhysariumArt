@@ -57,7 +57,7 @@ fn model(app: &App) -> Model {
     // Compute pipeline
     let cs_desc = wgpu::include_wgsl!("../Shader/Physarum.wgsl");
     let cs_mod = device.create_shader_module(&cs_desc);
-    let cs_slime_di_desc = wgpu::include_wgsl!("../Shader/SlimeDi.wgsl");
+    let cs_slime_di_desc = wgpu::include_wgsl!("../Shader/Slime.wgsl");
     let cs_slime_di_mod = device.create_shader_module(&cs_slime_di_desc);
     // Buffer for physarum agents
     // x, y, phi, 3*sensor (bool) as u32 since bool not supported
@@ -74,16 +74,30 @@ fn model(app: &App) -> Model {
     let xy_size: usize = (size_x * size_y) as usize;
     let slime_size = (xy_size * std::mem::size_of::<f32>())
                      as wgpu::BufferAddress;
-    let slime = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("SLIME"),
+    let slime_agents = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("SLIME Agents"),
         size: slime_size,
-        usage:  wgpu::BufferUsages::STORAGE,
+        usage:  wgpu::BufferUsages::STORAGE |
+                wgpu::BufferUsages::COPY_SRC |
+                wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-    let slime_di_de = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("SLIME dissipation"),
+    let slime_in = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("SLIME IN"),
         size: slime_size,
-        usage:  wgpu::BufferUsages::STORAGE,
+        usage:  wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let slime_out = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("SLIME OUT"),
+        size: slime_size,
+        usage:  wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+    let slime_render = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("SLIME Render"),
+        size: slime_size,
+        usage:  wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
 
@@ -104,7 +118,7 @@ fn model(app: &App) -> Model {
                                                                       false);
     let bind_group_physarum = create_physarum_bind_group(
         device, &bind_group_layout_physarum, &agents, agent_size,
-        &slime, &uniform_buffer);
+        &slime_agents, &uniform_buffer);
     let pipeline_layout_physarum = create_pipeline_layout(
         &device, &bind_group_layout_physarum, "Physarum Compute");
     let physarum_pipeline = create_compute_pipeline(&device,
@@ -116,10 +130,10 @@ fn model(app: &App) -> Model {
     let bind_group_layout_slime = create_bind_group_layout_compute(device,
                                                                    true);
     let bind_group_slime = create_slime_bind_group(device,
-                                                      &bind_group_layout_slime,
-                                                      &slime, &slime_di_de,
-                                                      &xy_size,
-                                                      &uniform_buffer);
+                                                   &bind_group_layout_slime,
+                                                   &slime_in, &slime_out,
+                                                   &xy_size,
+                                                   &uniform_buffer);
     let pipeline_layout_slime = create_pipeline_layout(
         &device, &bind_group_layout_slime, "Slime Layout");
     let slime_pipeline = create_compute_pipeline(
@@ -136,7 +150,7 @@ fn model(app: &App) -> Model {
         create_bind_group_layout_render(device);
     let bind_group_r = create_render_bind_group(device,
                                                 &bind_group_layout_r,
-                                                &slime, slime_size,
+                                                &slime_render, slime_size,
                                                 &uniform_buffer);
     let pipeline_layout_r = create_pipeline_layout(device,
                                                    &bind_group_layout_r,
@@ -161,7 +175,10 @@ fn model(app: &App) -> Model {
     let physarum = Physarum {
         agents,
         agent_size,
-        slime,
+        slime_agents,
+        slime_in,
+        slime_out,
+        slime_render,
         slime_size,
         uniform_buffer,
         bind_group_physarum,
@@ -183,36 +200,29 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let device = window.device();
 
     // Compute pass
-    let c_p_desc = wgpu::CommandEncoderDescriptor {
-        label: Some("Physarun Compute Encoder")
+    let ce_desc = wgpu::CommandEncoderDescriptor {
+        label: Some("Command Encoder")
     };
-    let mut c_p_encoder = device.create_command_encoder(&c_p_desc);
+    let mut encoder = device.create_command_encoder(&ce_desc);
     {
         let c_p_pass_desc = wgpu::ComputePassDescriptor {
             label: Some("Physarum Compute Pass")
         };
-        let mut c_p_pass = c_p_encoder.begin_compute_pass(&c_p_pass_desc);
+        let mut c_p_pass = encoder.begin_compute_pass(&c_p_pass_desc);
         c_p_pass.set_pipeline(&model.physarum.compute_physarum);
         c_p_pass.set_bind_group(0, &model.physarum.bind_group_physarum, &[]);
         c_p_pass.dispatch(10, 1, 1);
     }
-    window.queue().submit(Some(c_p_encoder.finish()));
-
-    let c_s_desc = wgpu::CommandEncoderDescriptor {
-        label: Some("Slime Encoder")
-    };
-    let mut c_s_encoder = device.create_command_encoder(&c_s_desc);
     {
         let c_s_pass_desc = wgpu::ComputePassDescriptor {
             label: Some("Slime Pass")
         };
-        let mut c_s_pass =
-            c_s_encoder.begin_compute_pass(&c_s_pass_desc);
-        c_s_pass.set_pipeline(&&model.physarum.compute_slime);
-        c_s_pass.set_bind_group(0, &&model.physarum.bind_group_slime, &[]);
+        let mut c_s_pass = encoder.begin_compute_pass(&c_s_pass_desc);
+        c_s_pass.set_pipeline(&model.physarum.compute_slime);
+        c_s_pass.set_bind_group(0, &model.physarum.bind_group_slime, &[]);
         c_s_pass.dispatch(10, 1, 1);
     }
-    window.queue().submit(Some(c_s_encoder.finish()));
+    window.queue().submit(Some(encoder.finish()));
 
     // Render pass
     let mut r_encoder = frame.command_encoder();

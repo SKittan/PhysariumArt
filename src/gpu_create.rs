@@ -19,7 +19,10 @@ pub struct Uniforms {  // parameter
 pub struct Physarum {
     pub agents: wgpu::Buffer,
     pub agent_size: wgpu::BufferAddress,
-    pub slime: wgpu::Buffer,
+    pub slime_agents: wgpu::Buffer,
+    pub slime_in: wgpu::Buffer,
+    pub slime_out: wgpu::Buffer,
+    pub slime_render: wgpu::Buffer,
     pub slime_size: wgpu::BufferAddress,
     pub uniform_buffer: wgpu::Buffer,
     pub bind_group_physarum: wgpu::BindGroup,
