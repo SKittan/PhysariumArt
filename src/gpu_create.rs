@@ -23,11 +23,9 @@ pub struct Physarum {
     pub slime_size: wgpu::BufferAddress,
     pub uniform_buffer: wgpu::Buffer,
     pub bind_group_physarum: wgpu::BindGroup,
-    pub bind_group_slime_di: wgpu::BindGroup,
-    pub bind_group_slime_de: wgpu::BindGroup,
+    pub bind_group_slime: wgpu::BindGroup,
     pub compute_physarum: wgpu::ComputePipeline,
-    pub compute_dissipation: wgpu::ComputePipeline,
-    pub compute_decay: wgpu::ComputePipeline
+    pub compute_slime: wgpu::ComputePipeline,
 }
 
 

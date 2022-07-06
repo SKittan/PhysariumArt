@@ -59,8 +59,6 @@ fn model(app: &App) -> Model {
     let cs_mod = device.create_shader_module(&cs_desc);
     let cs_slime_di_desc = wgpu::include_wgsl!("../Shader/SlimeDi.wgsl");
     let cs_slime_di_mod = device.create_shader_module(&cs_slime_di_desc);
-    let cs_slime_de_desc = wgpu::include_wgsl!("../Shader/SlimeDe.wgsl");
-    let cs_slime_de_mod = device.create_shader_module(&cs_slime_de_desc);
     // Buffer for physarum agents
     // x, y, phi, 3*sensor (bool) as u32 since bool not supported
     let agent_size = ((3 * std::mem::size_of::<f32>() +
@@ -114,28 +112,19 @@ fn model(app: &App) -> Model {
                                                     &cs_mod,
                                                     "Physarum Pipeline");
     // Slime
-    // dissipation
+    // dissipation and decay
     let bind_group_layout_slime = create_bind_group_layout_compute(device,
                                                                    true);
-    let bind_group_slime_di = create_slime_bind_group(device,
+    let bind_group_slime = create_slime_bind_group(device,
                                                       &bind_group_layout_slime,
                                                       &slime, &slime_di_de,
                                                       &xy_size,
                                                       &uniform_buffer);
     let pipeline_layout_slime = create_pipeline_layout(
         &device, &bind_group_layout_slime, "Slime Layout");
-    let slime_di_pipeline = create_compute_pipeline(
+    let slime_pipeline = create_compute_pipeline(
         &device, &pipeline_layout_slime, &cs_slime_di_mod,
         "Slime dissipation Pipeline");
-    // decay
-    let bind_group_slime_de = create_slime_bind_group(device,
-        &bind_group_layout_slime,
-        &slime_di_de, &slime,
-        &xy_size,
-        &uniform_buffer);
-    let slime_de_pipeline = create_compute_pipeline(
-        &device, &pipeline_layout_slime, &cs_slime_de_mod,
-        "Slime decay Pipeline");
 
     // Render Pipeline
     let vs_desc = wgpu::include_wgsl!("../Shader/passThrough.wgsl");
@@ -176,11 +165,9 @@ fn model(app: &App) -> Model {
         slime_size,
         uniform_buffer,
         bind_group_physarum,
-        bind_group_slime_di,
-        bind_group_slime_de,
+        bind_group_slime,
         compute_physarum: physarum_pipeline,
-        compute_dissipation: slime_di_pipeline,
-        compute_decay: slime_de_pipeline
+        compute_slime: slime_pipeline,
     };
 
     Model {
@@ -211,37 +198,21 @@ fn view(app: &App, model: &Model, frame: Frame) {
     }
     window.queue().submit(Some(c_p_encoder.finish()));
 
-    let c_sdi_desc = wgpu::CommandEncoderDescriptor {
-        label: Some("Slime Dissipation Encoder")
+    let c_s_desc = wgpu::CommandEncoderDescriptor {
+        label: Some("Slime Encoder")
     };
-    let mut c_sdi_encoder = device.create_command_encoder(&c_sdi_desc);
+    let mut c_s_encoder = device.create_command_encoder(&c_s_desc);
     {
-        let c_sdi_pass_desc = wgpu::ComputePassDescriptor {
-            label: Some("Slime Dissipation Pass")
+        let c_s_pass_desc = wgpu::ComputePassDescriptor {
+            label: Some("Slime Pass")
         };
-        let mut c_sdi_pass =
-            c_sdi_encoder.begin_compute_pass(&c_sdi_pass_desc);
-        c_sdi_pass.set_pipeline(&model.physarum.compute_dissipation);
-        c_sdi_pass.set_bind_group(0, &model.physarum.bind_group_slime_di, &[]);
-        c_sdi_pass.dispatch(10, 1, 1);
+        let mut c_s_pass =
+            c_s_encoder.begin_compute_pass(&c_s_pass_desc);
+        c_s_pass.set_pipeline(&&model.physarum.compute_slime);
+        c_s_pass.set_bind_group(0, &&model.physarum.bind_group_slime, &[]);
+        c_s_pass.dispatch(10, 1, 1);
     }
-    window.queue().submit(Some(c_sdi_encoder.finish()));
-
-    let c_sde_desc = wgpu::CommandEncoderDescriptor {
-        label: Some("Slime decay Encoder")
-    };
-    let mut c_sde_encoder = device.create_command_encoder(&c_sde_desc);
-    {
-        let c_sde_pass_desc = wgpu::ComputePassDescriptor {
-            label: Some("Slime decay Pass")
-        };
-        let mut c_sde_pass =
-            c_sde_encoder.begin_compute_pass(&c_sde_pass_desc);
-        c_sde_pass.set_pipeline(&model.physarum.compute_decay);
-        c_sde_pass.set_bind_group(0, &model.physarum.bind_group_slime_de, &[]);
-        c_sde_pass.dispatch(256, 1, 1);
-    }
-    window.queue().submit(Some(c_sde_encoder.finish()));
+    window.queue().submit(Some(c_s_encoder.finish()));
 
     // Render pass
     let mut r_encoder = frame.command_encoder();

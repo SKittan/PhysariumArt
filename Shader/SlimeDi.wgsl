@@ -49,7 +49,7 @@ fn main([[builtin(local_invocation_index)]] liIdx: u32)
                 let idx = u32(x)*uniforms.sizeX + u32(y);
                 slime_out.c[i0] = slime_out.c[i0] + slime_in.c[idx];
         }}
-        // calculate mean
-        slime_out.c[i0] = slime_out.c[i0] / 9.;
+        // calculate mean and decay
+        slime_out.c[i0] = slime_out.c[i0] / 9. * uniforms.decay;
     }
 }
