@@ -32,7 +32,8 @@ pub struct Physarum {
     pub compute_slime: wgpu::ComputePipeline,
 }
 
-#[derive(Clone, Copy)]
+#[repr(C)]
+#[derive(Copy, Clone)]
 pub struct Agent {
     pub x: f32,
     pub y: f32,
