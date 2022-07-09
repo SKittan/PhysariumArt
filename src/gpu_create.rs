@@ -1,3 +1,4 @@
+use bytemuck::{Pod, Zeroable};
 use nannou::prelude::*;
 
 // The vertex type that we will use to represent a point on our triangle.
@@ -31,6 +32,15 @@ pub struct Physarum {
     pub compute_slime: wgpu::ComputePipeline,
 }
 
+#[derive(Clone, Copy)]
+pub struct Agent {
+    pub x: f32,
+    pub y: f32,
+    pub phi: f32,
+    pub sens: u32  // sensor values: 0, 1, 2, 4, 1+2, 2+4
+}
+unsafe impl Zeroable for Agent {}
+unsafe impl Pod for Agent {}
 
 pub fn create_bind_group_layout_compute(device: &wgpu::Device,
                                         read_only_first: bool)

@@ -1,4 +1,6 @@
+use bytemuck;
 use nannou::{prelude::*};
+use rand::Rng;
 
 mod gpu_create;
 use gpu_create::{create_physarum_bind_group,
@@ -8,8 +10,8 @@ use gpu_create::{create_physarum_bind_group,
                  create_bind_group_layout_render,
                  create_compute_pipeline, create_render_pipeline,
                  create_pipeline_layout,
-                 Physarum, Uniforms, Vertex};
-
+                 Agent, Physarum, Uniforms, Vertex};
+use pollster::block_on;
 
 struct Model {
     bind_group_r: wgpu::BindGroup,
@@ -43,6 +45,8 @@ fn model(app: &App) -> Model {
     let n_agents: usize = 10;//24;
     let decay: f32 = 0.9;
 
+    let mut rng = rand::thread_rng();
+
     let w_id = app
         .new_window()
         .size(size_x, size_y)
@@ -64,12 +68,23 @@ fn model(app: &App) -> Model {
     let agent_size = ((3 * std::mem::size_of::<f32>() +
                        std::mem::size_of::<u32>()) * n_agents)
                      as wgpu::BufferAddress;
-    let agents = device.create_buffer(&wgpu::BufferDescriptor {
+    let mut agents_init: Vec<Agent> = Vec::with_capacity(n_agents);
+    for _ in 0 .. n_agents {
+        agents_init.push(
+            Agent{
+                x: rng.gen_range(0. .. size_x as f32),
+                y: rng.gen_range(0. .. size_y as f32),
+                phi: rng.gen_range(-3.14 .. 3.14),
+                sens: 0
+            }
+        );
+    }
+    let agents = device.create_buffer_init(&wgpu::BufferInitDescriptor {
         label: Some("Physarum Agents"),
-        size: agent_size,
+        contents: bytemuck::cast_slice::<_, u8>(&agents_init),
         usage:  wgpu::BufferUsages::STORAGE,
-        mapped_at_creation: false,
     });
+
     // Buffer for slime concentration
     let xy_size: usize = (size_x * size_y) as usize;
     let slime_size = (xy_size * std::mem::size_of::<f32>())
@@ -78,7 +93,7 @@ fn model(app: &App) -> Model {
         label: Some("SLIME Agents"),
         size: slime_size,
         usage:  wgpu::BufferUsages::STORAGE |
-                wgpu::BufferUsages::COPY_SRC |
+                wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::MAP_READ |
                 wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -222,8 +237,12 @@ fn view(app: &App, model: &Model, frame: Frame) {
         c_s_pass.set_bind_group(0, &model.physarum.bind_group_slime, &[]);
         c_s_pass.dispatch(10, 1, 1);
     }
-    window.queue().submit(Some(encoder.finish()));
+    // encoder.copy_buffer_to_buffer(&model.physarum.slime_out, 0,
+    //                               &model.physarum.slime_render, 0,
+    //                               model.physarum.slime_size);
+    print_debug(&model.physarum.slime_agents, device);
 
+    window.queue().submit(Some(encoder.finish()));
     // Render pass
     let mut r_encoder = frame.command_encoder();
     let mut render_pass = wgpu::RenderPassBuilder::new()
@@ -235,6 +254,34 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let vertex_range = 0..VERTICES.len() as u32;
     let instance_range = 0..1;
     render_pass.draw(vertex_range, instance_range);
+}
+
+fn print_debug(buffer: &wgpu::Buffer, device: &wgpu::Device){
+    let buffer_slice = buffer.slice(..);
+    let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
+    device.poll(wgpu::Maintain::Wait);
+
+    println!("Debug Shader");
+    match block_on(buffer_future) {
+        Err(e) => {
+            println!("failed to wait for buffer read: {}", e)
+        }
+        Ok(_) => {
+            let data : Vec<u8> = buffer_slice.get_mapped_range().to_vec();
+            for i in (3..data.len()).step_by(4) {
+                let value = f32::from_be_bytes([data[i-3], data[i-2],
+                                                data[i-1], data[i]]);
+                if value != 0. {
+                    println!("i: {:?}, v: {:?}", i, value);
+                    println!("0: {:x?}, 1: {:x?}, 2:{:x?}, 3: {:x?}",
+                             data[i-3], data[i-2], data[i-1], data[i]);
+                }
+            }
+            drop(data);
+            buffer.unmap();
+        }
+    }
+
 }
 
 // See the `nannou::wgpu::bytes` documentation for why this is necessary.
