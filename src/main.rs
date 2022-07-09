@@ -269,7 +269,7 @@ fn print_debug(buffer: &wgpu::Buffer, device: &wgpu::Device){
         Ok(_) => {
             let data : Vec<u8> = buffer_slice.get_mapped_range().to_vec();
             for i in (3..data.len()).step_by(4) {
-                let value = f32::from_be_bytes([data[i-3], data[i-2],
+                let value = f32::from_le_bytes([data[i-3], data[i-2],
                                                 data[i-1], data[i]]);
                 if value != 0. {
                     println!("i: {:?}, v: {:?}", i, value);
