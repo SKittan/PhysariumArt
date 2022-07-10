@@ -21,9 +21,7 @@ pub struct Physarum {
     pub agents: wgpu::Buffer,
     pub agent_size: wgpu::BufferAddress,
     pub slime_agents: wgpu::Buffer,
-    pub slime_in: wgpu::Buffer,
-    pub slime_out: wgpu::Buffer,
-    pub slime_render: wgpu::Buffer,
+    pub slime_slime: wgpu::Buffer,
     pub slime_size: wgpu::BufferAddress,
     pub uniform_buffer: wgpu::Buffer,
     pub bind_group_physarum: wgpu::BindGroup,
@@ -102,15 +100,15 @@ pub fn create_physarum_bind_group(
 pub fn create_slime_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
-    slime: &wgpu::Buffer,
-    slime_dissipate: &wgpu::Buffer,  // intermediate result for dissipation
+    slime_in: &wgpu::Buffer,
+    slime_out: &wgpu::Buffer,  // intermediate result for dissipation
     slime_range: &usize,
     uniform_buffer: &wgpu::Buffer)
 -> wgpu::BindGroup
 {
     wgpu::BindGroupBuilder::new()
-        .buffer::<f32>(slime, 0..*slime_range)
-        .buffer::<f32>(slime_dissipate, 0..*slime_range)
+        .buffer::<f32>(slime_in, 0..*slime_range)
+        .buffer::<f32>(slime_out, 0..*slime_range)
         .buffer::<Uniforms>(uniform_buffer, 0..1)
         .build(device, layout)
 }

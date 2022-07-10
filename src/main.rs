@@ -93,26 +93,16 @@ fn model(app: &App) -> Model {
         label: Some("SLIME Agents"),
         size: slime_size,
         usage:  wgpu::BufferUsages::STORAGE |
-                wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::MAP_READ |
+                wgpu::BufferUsages::MAP_READ |
                 wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-    let slime_in = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("SLIME IN"),
-        size: slime_size,
-        usage:  wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    let slime_out = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("SLIME OUT"),
-        size: slime_size,
-        usage:  wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let slime_render = device.create_buffer(&wgpu::BufferDescriptor {
+    let slime_slime = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("SLIME Render"),
         size: slime_size,
-        usage:  wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        usage:  wgpu::BufferUsages::STORAGE |
+                wgpu::BufferUsages::MAP_READ |
+                wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
 
@@ -146,7 +136,7 @@ fn model(app: &App) -> Model {
                                                                    true);
     let bind_group_slime = create_slime_bind_group(device,
                                                    &bind_group_layout_slime,
-                                                   &slime_in, &slime_out,
+                                                   &slime_agents, &slime_slime,
                                                    &xy_size,
                                                    &uniform_buffer);
     let pipeline_layout_slime = create_pipeline_layout(
@@ -165,7 +155,7 @@ fn model(app: &App) -> Model {
         create_bind_group_layout_render(device);
     let bind_group_r = create_render_bind_group(device,
                                                 &bind_group_layout_r,
-                                                &slime_render, slime_size,
+                                                &slime_agents, slime_size,
                                                 &uniform_buffer);
     let pipeline_layout_r = create_pipeline_layout(device,
                                                    &bind_group_layout_r,
@@ -191,9 +181,7 @@ fn model(app: &App) -> Model {
         agents,
         agent_size,
         slime_agents,
-        slime_in,
-        slime_out,
-        slime_render,
+        slime_slime,
         slime_size,
         uniform_buffer,
         bind_group_physarum,
@@ -237,12 +225,13 @@ fn view(app: &App, model: &Model, frame: Frame) {
         c_s_pass.set_bind_group(0, &model.physarum.bind_group_slime, &[]);
         c_s_pass.dispatch(10, 1, 1);
     }
-    // encoder.copy_buffer_to_buffer(&model.physarum.slime_out, 0,
-    //                               &model.physarum.slime_render, 0,
+    print_debug(&model.physarum.slime_agents, device, "After Slime");
+    print_debug(&model.physarum.slime_slime, device, "Slime After Slime");
+    // encoder.copy_buffer_to_buffer(&model.physarum.slime_slime, 0,
+    //                               &model.physarum.slime_agents, 0,
     //                               model.physarum.slime_size);
-    print_debug(&model.physarum.slime_agents, device);
-
     window.queue().submit(Some(encoder.finish()));
+
     // Render pass
     let mut r_encoder = frame.command_encoder();
     let mut render_pass = wgpu::RenderPassBuilder::new()
@@ -256,12 +245,12 @@ fn view(app: &App, model: &Model, frame: Frame) {
     render_pass.draw(vertex_range, instance_range);
 }
 
-fn print_debug(buffer: &wgpu::Buffer, device: &wgpu::Device){
+fn print_debug(buffer: &wgpu::Buffer, device: &wgpu::Device, txt: &str){
     let buffer_slice = buffer.slice(..);
     let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
     device.poll(wgpu::Maintain::Wait);
 
-    println!("Debug Shader");
+    println!("{}", txt);
     match block_on(buffer_future) {
         Err(e) => {
             println!("failed to wait for buffer read: {}", e)
@@ -271,9 +260,9 @@ fn print_debug(buffer: &wgpu::Buffer, device: &wgpu::Device){
             for i in (3..data.len()).step_by(4) {
                 let value = f32::from_le_bytes([data[i-3], data[i-2],
                                                 data[i-1], data[i]]);
-                if value != 0. {
-                    println!("i: {:?}, v: {:?}", i, value);
-                    println!("0: {:x?}, 1: {:x?}, 2:{:x?}, 3: {:x?}",
+                if value > 0. {
+                    print!("i: {:?}, v: {:?}; ", i, value);
+                    print!("0: {:x?}, 1: {:x?}, 2:{:x?}, 3: {:x?}\n",
                              data[i-3], data[i-2], data[i-1], data[i]);
                 }
             }
