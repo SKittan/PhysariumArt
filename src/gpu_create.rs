@@ -11,7 +11,7 @@ pub struct Vertex {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Uniforms {  // parameter
-    pub n_agents: usize,
+    pub n_agents: u32,
     pub size_x: u32,
     pub size_y: u32,
     pub decay: f32
@@ -39,6 +39,8 @@ pub struct Agent {
 }
 unsafe impl Zeroable for Agent {}
 unsafe impl Pod for Agent {}
+unsafe impl Zeroable for Uniforms {}
+unsafe impl Pod for Uniforms {}
 
 pub fn create_bind_group_layout_compute(device: &wgpu::Device,
                                         read_only_first: bool)
@@ -115,14 +117,13 @@ pub fn create_slime_bind_group(
 pub fn create_render_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
-    buffer: &wgpu::Buffer,
-    buffer_size: wgpu::BufferAddress,
+    slime: &wgpu::Buffer,
+    slime_size: &usize,
     uniform_buffer: &wgpu::Buffer)
 -> wgpu::BindGroup
 {
-    let buffer_size_bytes = std::num::NonZeroU64::new(buffer_size).unwrap();
     wgpu::BindGroupBuilder::new()
-        .buffer_bytes(buffer, 0, Some(buffer_size_bytes))
+        .buffer::<f32>(slime, 0..*slime_size)
         .buffer::<Uniforms>(uniform_buffer, 0..1)
         .build(device, layout)
 }

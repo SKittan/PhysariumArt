@@ -11,7 +11,6 @@ use gpu_create::{create_physarum_bind_group,
                  create_compute_pipeline, create_render_pipeline,
                  create_pipeline_layout,
                  Agent, Physarum, Uniforms, Vertex};
-use pollster::block_on;
 
 struct Model {
     bind_group_r: wgpu::BindGroup,
@@ -90,7 +89,6 @@ fn model(app: &App) -> Model {
         label: Some("SLIME Agents"),
         size: slime_size,
         usage:  wgpu::BufferUsages::STORAGE |
-                wgpu::BufferUsages::MAP_READ |
                 wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -98,18 +96,17 @@ fn model(app: &App) -> Model {
         label: Some("SLIME Render"),
         size: slime_size,
         usage:  wgpu::BufferUsages::STORAGE |
-                wgpu::BufferUsages::MAP_READ |
                 wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
 
     // Buffer for parameter
-    let uniforms = Uniforms {n_agents, size_x, size_y, decay};
-    let uniforms_bytes = uniforms_as_bytes(&uniforms);
+    let uniforms = vec![Uniforms {n_agents: n_agents as u32,
+                                  size_x, size_y, decay}];
     let usage = wgpu::BufferUsages::UNIFORM;
     let uniform_buffer = device.create_buffer_init(&BufferInitDescriptor {
         label: Some("uniform-buffer"),
-        contents: uniforms_bytes,
+        contents: bytemuck::cast_slice::<_, u8>(&uniforms),
         usage,
     });
 
@@ -152,7 +149,7 @@ fn model(app: &App) -> Model {
         create_bind_group_layout_render(device);
     let bind_group_r = create_render_bind_group(device,
                                                 &bind_group_layout_r,
-                                                &slime_agents, slime_size,
+                                                &slime_agents, &xy_size,
                                                 &uniform_buffer);
     let pipeline_layout_r = create_pipeline_layout(device,
                                                    &bind_group_layout_r,
@@ -222,12 +219,10 @@ fn view(app: &App, model: &Model, frame: Frame) {
         c_s_pass.dispatch(10, 1, 1);
     }
 
-    // encoder.copy_buffer_to_buffer(&model.physarum.slime_slime, 0,
-    //                               &model.physarum.slime_agents, 0,
-    //                               model.physarum.slime_size);
+    encoder.copy_buffer_to_buffer(&model.physarum.slime_slime, 0,
+                                  &model.physarum.slime_agents, 0,
+                                  model.physarum.slime_size);
     window.queue().submit(Some(encoder.finish()));
-    print_debug(&model.physarum.slime_agents, device, "Agent Slime");
-    print_debug(&model.physarum.slime_slime, device, "Slime Slime");
 
     // Render pass
     let mut r_encoder = frame.command_encoder();
@@ -242,39 +237,8 @@ fn view(app: &App, model: &Model, frame: Frame) {
     render_pass.draw(vertex_range, instance_range);
 }
 
-fn print_debug(buffer: &wgpu::Buffer, device: &wgpu::Device, txt: &str){
-    let buffer_slice = buffer.slice(..);
-    let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
-    device.poll(wgpu::Maintain::Wait);
-
-    println!("{}", txt);
-    match block_on(buffer_future) {
-        Err(e) => {
-            println!("failed to wait for buffer read: {}", e)
-        }
-        Ok(_) => {
-            let data : Vec<u8> = buffer_slice.get_mapped_range().to_vec();
-            for i in (3..data.len()).step_by(4) {
-                let value = f32::from_le_bytes([data[i-3], data[i-2],
-                                                data[i-1], data[i]]);
-                if value > 0. {
-                    print!("i: {:?}, v: {:?}; ", i, value);
-                    print!("0: {:x?}, 1: {:x?}, 2:{:x?}, 3: {:x?}\n",
-                             data[i-3], data[i-2], data[i-1], data[i]);
-                }
-            }
-            drop(data);
-            buffer.unmap();
-        }
-    }
-
-}
 
 // See the `nannou::wgpu::bytes` documentation for why this is necessary.
-fn uniforms_as_bytes(uniforms: &Uniforms) -> &[u8] {
-    unsafe { wgpu::bytes::from(uniforms) }
-}
-
 fn vertices_as_bytes(data: &[Vertex]) -> &[u8] {
     unsafe { wgpu::bytes::from_slice(data) }
 }

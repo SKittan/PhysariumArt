@@ -1480,7 +1480,6 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "nannou",
- "pollster",
  "rand 0.8.5",
 ]
 
@@ -1513,12 +1512,6 @@ dependencies = [
  "deflate",
  "miniz_oxide 0.3.7",
 ]
-
-[[package]]
-name = "pollster"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5da3b0203fd7ee5720aa0b5e790b591aa5d3f41c3ed2c34a3a393382198af2f7"
 
 [[package]]
 name = "ppv-lite86"
