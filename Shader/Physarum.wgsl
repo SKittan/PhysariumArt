@@ -29,34 +29,40 @@ struct Uniforms {
 var<uniform> uniforms: Uniforms;
 
 
-[[stage(compute), workgroup_size(10)]]
+[[stage(compute), workgroup_size(256)]]
 fn main([[builtin(local_invocation_index)]] liIdx: u32)
 {
     let pi = 3.14159;
 
-    in.agents[liIdx].phi = cos(sin(f32(liIdx) * 95123878123.3214) *
-                               2318746123.897631) * pi;
-    in.agents[liIdx].x = in.agents[liIdx].x + cos(in.agents[liIdx].phi);
-    in.agents[liIdx].y = in.agents[liIdx].y + sin(in.agents[liIdx].phi);
-
-    // Wrap environment for agents
-    let max_x = f32(uniforms.sizeX);
-    let max_y = f32(uniforms.sizeY);
-    if (in.agents[liIdx].x < 0.){
-        in.agents[liIdx].x = in.agents[liIdx].x + max_x;
-    } else {if (in.agents[liIdx].x > max_x) {
-        in.agents[liIdx].x = max_x - in.agents[liIdx].x;
-    }}
-    if (in.agents[liIdx].y < 0.){
-        in.agents[liIdx].y = in.agents[liIdx].y + max_y;
-    } else {if (in.agents[liIdx].y > max_y) {
-        in.agents[liIdx].y = max_y - in.agents[liIdx].y;
-    }}
-
-    let len = u32(f32(uniforms.nAgents) / 10.);
+    let len = u32(f32(uniforms.nAgents) / 256.);
     let i0 = liIdx * len;
 
-    let index: u32 = u32(round(in.agents[liIdx].x +
-                               in.agents[liIdx].y * max_x));
-    slime.c[index] = slime.c[index] + 0.1;
+    for (var i=i0; i<i0+len; i=i+u32(1)){
+        if(i > uniforms.nAgents) {
+            break;
+        }
+
+        in.agents[i].phi = cos(sin(f32(i) * 95123878123.3214) *
+                                2318746123.897631) * pi;
+        in.agents[i].x = in.agents[i].x + cos(in.agents[i].phi);
+        in.agents[i].y = in.agents[i].y + sin(in.agents[i].phi);
+
+        // Wrap environment for agents
+        let max_x = f32(uniforms.sizeX);
+        let max_y = f32(uniforms.sizeY);
+        if (in.agents[i].x < 0.){
+            in.agents[i].x = in.agents[i].x + max_x;
+        } else {if (in.agents[i].x > max_x) {
+            in.agents[i].x = max_x - in.agents[i].x;
+        }}
+        if (in.agents[i].y < 0.){
+            in.agents[i].y = in.agents[i].y + max_y;
+        } else {if (in.agents[i].y > max_y) {
+            in.agents[i].y = max_y - in.agents[i].y;
+        }}
+
+        let index: u32 = u32(round(in.agents[i].x +
+                                in.agents[i].y * max_x));
+        slime.c[index] = slime.c[index] + 0.1;
+    }
 }

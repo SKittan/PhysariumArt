@@ -19,10 +19,10 @@ struct Uniforms {
 var<uniform> uniforms: Uniforms;
 
 
-[[stage(compute), workgroup_size(10)]]
+[[stage(compute), workgroup_size(256)]]
 fn main([[builtin(local_invocation_index)]] liIdx: u32)
 {
-    let len = u32(f32(uniforms.sizeX * uniforms.sizeY) / 10.);
+    let len = u32(f32(uniforms.sizeX * uniforms.sizeY) / 256.);
     let i0 = liIdx * len;
 
     for (var i=i0; i<i0+len; i=i+u32(1)){

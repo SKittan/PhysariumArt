@@ -41,7 +41,7 @@ fn main() {
 
 fn model(app: &App) -> Model {
     let (size_x, size_y) = (512, 512);
-    let n_agents: usize = 10;//24;
+    let n_agents: usize = 300;
     let decay: f32 = 0.9;
 
     let mut rng = rand::thread_rng();
@@ -207,7 +207,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
         let mut c_p_pass = encoder.begin_compute_pass(&c_p_pass_desc);
         c_p_pass.set_pipeline(&model.physarum.compute_physarum);
         c_p_pass.set_bind_group(0, &model.physarum.bind_group_physarum, &[]);
-        c_p_pass.dispatch(10, 1, 1);
+        c_p_pass.dispatch(256, 1, 1);
     }
     {
         let c_s_pass_desc = wgpu::ComputePassDescriptor {
@@ -216,7 +216,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
         let mut c_s_pass = encoder.begin_compute_pass(&c_s_pass_desc);
         c_s_pass.set_pipeline(&model.physarum.compute_slime);
         c_s_pass.set_bind_group(0, &model.physarum.bind_group_slime, &[]);
-        c_s_pass.dispatch(10, 1, 1);
+        c_s_pass.dispatch(256, 1, 1);
     }
 
     encoder.copy_buffer_to_buffer(&model.physarum.slime_slime, 0,
