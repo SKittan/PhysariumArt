@@ -40,7 +40,7 @@ fn main() {
 }
 
 fn model(app: &App) -> Model {
-    let (size_x, size_y) = (512, 512);
+    let (size_x, size_y) = (1024, 1024);
     let n_agents: usize = 300;
     let decay: f32 = 0.9;
 

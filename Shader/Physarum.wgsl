@@ -32,7 +32,6 @@ var<uniform> uniforms: Uniforms;
 [[stage(compute), workgroup_size(256)]]
 fn main([[builtin(local_invocation_index)]] liIdx: u32)
 {
-    let pi = 3.14159;
 
     let len = u32(f32(uniforms.nAgents) / 256.);
     let i0 = liIdx * len;
@@ -42,8 +41,6 @@ fn main([[builtin(local_invocation_index)]] liIdx: u32)
             break;
         }
 
-        in.agents[i].phi = cos(sin(f32(i) * 95123878123.3214) *
-                                2318746123.897631) * pi;
         in.agents[i].x = in.agents[i].x + cos(in.agents[i].phi);
         in.agents[i].y = in.agents[i].y + sin(in.agents[i].phi);
 
@@ -63,6 +60,6 @@ fn main([[builtin(local_invocation_index)]] liIdx: u32)
 
         let index: u32 = u32(round(in.agents[i].x +
                                 in.agents[i].y * max_x));
-        slime.c[index] = slime.c[index] + 0.1;
+        slime.c[index] = slime.c[index] + 0.01;
     }
 }
