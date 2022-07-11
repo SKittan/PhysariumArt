@@ -65,9 +65,6 @@ fn model(app: &App) -> Model {
     let cs_slime_di_mod = device.create_shader_module(&cs_slime_di_desc);
     // Buffer for physarum agents
     // x, y, phi, 3*sensor (bool) as u32 since bool not supported
-    let agent_size = ((3 * std::mem::size_of::<f32>() +
-                       std::mem::size_of::<u32>()) * n_agents)
-                     as wgpu::BufferAddress;
     let mut agents_init: Vec<Agent> = Vec::with_capacity(n_agents);
     for _ in 0 .. n_agents {
         agents_init.push(
@@ -122,8 +119,8 @@ fn model(app: &App) -> Model {
     let bind_group_layout_physarum = create_bind_group_layout_compute(device,
                                                                       false);
     let bind_group_physarum = create_physarum_bind_group(
-        device, &bind_group_layout_physarum, &agents, agent_size,
-        &slime_agents, &uniform_buffer);
+        device, &bind_group_layout_physarum, &agents, &n_agents,
+        &slime_agents, &xy_size, &uniform_buffer);
     let pipeline_layout_physarum = create_pipeline_layout(
         &device, &bind_group_layout_physarum, "Physarum Compute");
     let physarum_pipeline = create_compute_pipeline(&device,
@@ -179,7 +176,6 @@ fn model(app: &App) -> Model {
 
     let physarum = Physarum {
         agents,
-        agent_size,
         slime_agents,
         slime_slime,
         slime_size,
@@ -225,12 +221,13 @@ fn view(app: &App, model: &Model, frame: Frame) {
         c_s_pass.set_bind_group(0, &model.physarum.bind_group_slime, &[]);
         c_s_pass.dispatch(10, 1, 1);
     }
-    print_debug(&model.physarum.slime_agents, device, "After Slime");
-    print_debug(&model.physarum.slime_slime, device, "Slime After Slime");
+
     // encoder.copy_buffer_to_buffer(&model.physarum.slime_slime, 0,
     //                               &model.physarum.slime_agents, 0,
     //                               model.physarum.slime_size);
     window.queue().submit(Some(encoder.finish()));
+    print_debug(&model.physarum.slime_agents, device, "Agent Slime");
+    print_debug(&model.physarum.slime_slime, device, "Slime Slime");
 
     // Render pass
     let mut r_encoder = frame.command_encoder();
