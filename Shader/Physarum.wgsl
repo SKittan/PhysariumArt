@@ -34,15 +34,29 @@ fn main([[builtin(local_invocation_index)]] liIdx: u32)
 {
     let pi = 3.14159;
 
-    in.agents[liIdx].phi= cos(sin(0.1 * f32(liIdx) * 95123878123.3214) *
-                            2318746123.897631) * 2. * pi;
-    in.agents[liIdx].x= in.agents[liIdx].x+ cos(in.agents[liIdx].phi);
-    in.agents[liIdx].y= in.agents[liIdx].y+ sin(in.agents[liIdx].phi);
+    in.agents[liIdx].phi = cos(sin(f32(liIdx) * 95123878123.3214) *
+                               2318746123.897631) * pi;
+    in.agents[liIdx].x = in.agents[liIdx].x + cos(in.agents[liIdx].phi);
+    in.agents[liIdx].y = in.agents[liIdx].y + sin(in.agents[liIdx].phi);
+
+    // Wrap environment for agents
+    let max_x = f32(uniforms.sizeX);
+    let max_y = f32(uniforms.sizeY);
+    if (in.agents[liIdx].x < 0.){
+        in.agents[liIdx].x = in.agents[liIdx].x + max_x;
+    } else {if (in.agents[liIdx].x > max_x) {
+        in.agents[liIdx].x = max_x - in.agents[liIdx].x;
+    }}
+    if (in.agents[liIdx].y < 0.){
+        in.agents[liIdx].y = in.agents[liIdx].y + max_y;
+    } else {if (in.agents[liIdx].y > max_y) {
+        in.agents[liIdx].y = max_y - in.agents[liIdx].y;
+    }}
 
     let len = u32(f32(uniforms.nAgents) / 10.);
     let i0 = liIdx * len;
 
     let index: u32 = u32(round(in.agents[liIdx].x +
-                               in.agents[liIdx].y * f32(uniforms.sizeX)));
+                               in.agents[liIdx].y * max_x));
     slime.c[index] = slime.c[index] + 0.1;
 }
