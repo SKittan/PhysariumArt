@@ -15,6 +15,17 @@
             "environment": [{"name": "RUST_BACKTRACE", "value": "full"}],
             "console": "integratedTerminal",
             "preLaunchTask": "Debug build"
+        },
+        {
+            "name": "Run Release",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "./target/release/physarium_art.exe",
+            "args": [""],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "preLaunchTask": "Release build"
         }
     ]
 }
