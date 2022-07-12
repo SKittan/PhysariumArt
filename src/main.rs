@@ -64,6 +64,7 @@ impl State {
 
         let mut rng = rand::thread_rng();
 
+        window.set_inner_size(winit::dpi::PhysicalSize::new(size_x, size_y));
 
         // The instance is a handle to our GPU
         // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
@@ -295,7 +296,7 @@ impl State {
             let mut c_p_pass = encoder.begin_compute_pass(&c_p_pass_desc);
             c_p_pass.set_pipeline(&self.compute_physarum);
             c_p_pass.set_bind_group(0, &self.bind_group_physarum, &[]);
-            c_p_pass.dispatch_workgroups(256, 1, 1);
+            c_p_pass.dispatch_workgroups(32, 1, 1);
         }
         {
             let c_s_pass_desc = wgpu::ComputePassDescriptor {
@@ -304,7 +305,7 @@ impl State {
             let mut c_s_pass = encoder.begin_compute_pass(&c_s_pass_desc);
             c_s_pass.set_pipeline(&self.compute_slime);
             c_s_pass.set_bind_group(0, &self.bind_group_slime, &[]);
-            c_s_pass.dispatch_workgroups(256, 1, 1);
+            c_s_pass.dispatch_workgroups(32, 1, 1);
         }
 
         encoder.copy_buffer_to_buffer(&self.slime_slime, 0,
