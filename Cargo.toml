@@ -8,5 +8,7 @@ edition = "2021"
 
 [dependencies]
 bytemuck = "1.10.0"
-nannou = "0.18.1"
+pollster = "0.2.5"
 rand = "0.8.5"
+winit = "0.26.1"
+wgpu = "0.13.1"

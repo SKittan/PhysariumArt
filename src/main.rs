@@ -1,6 +1,14 @@
 use bytemuck;
-use nannou::{prelude::*};
+use wgpu;
+use wgpu::util::DeviceExt;
+use winit::{
+    event::*,
+    event_loop::{ControlFlow, EventLoop},
+    window::{Window, WindowBuilder},
+};
+use pollster;
 use rand::Rng;
+use std::iter;
 
 mod gpu_create;
 use gpu_create::{create_physarum_bind_group,
@@ -8,19 +16,28 @@ use gpu_create::{create_physarum_bind_group,
                  create_bind_group_layout_compute,
                  create_render_bind_group,
                  create_bind_group_layout_render,
-                 create_compute_pipeline, create_render_pipeline,
-                 create_pipeline_layout,
-                 Agent, Physarum, Uniforms, Vertex};
+                 create_compute_pipeline, create_pipeline_layout,
+                 Agent, Uniforms, Vertex};
 
-struct Model {
-    bind_group_r: wgpu::BindGroup,
+
+struct State {
+    surface: wgpu::Surface,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
-    physarum: Physarum
+    slime_agents: wgpu::Buffer,
+    slime_slime: wgpu::Buffer,
+    slime_size: wgpu::BufferAddress,
+    bind_group_physarum: wgpu::BindGroup,
+    bind_group_slime: wgpu::BindGroup,
+    bind_group_r: wgpu::BindGroup,
+    compute_physarum: wgpu::ComputePipeline,
+    compute_slime: wgpu::ComputePipeline,
 }
 
 // The vertices that make up the rectangle to which the image will be drawn.
-const VERTICES: [Vertex; 4] = [
+const VERTICES: &[Vertex] = &[
     Vertex {
         position: [-1.0, 1.0],
     },
@@ -36,209 +53,348 @@ const VERTICES: [Vertex; 4] = [
 ];
 
 fn main() {
-    nannou::app(model).run();
+    pollster::block_on(run());
 }
 
-fn model(app: &App) -> Model {
-    let (size_x, size_y) = (1024, 1024);
-    let n_agents: usize = 300;
-    let decay: f32 = 0.9;
+impl State {
+    async fn new(window: &Window) -> Self {
+        let (size_x, size_y) = (512, 512);
+        let n_agents: usize = 300;
+        let decay: f32 = 0.9;
 
-    let mut rng = rand::thread_rng();
+        let mut rng = rand::thread_rng();
 
-    let w_id = app
-        .new_window()
-        .size(size_x, size_y)
-        .view(view)
-        .build()
-        .unwrap();
-    let window = app.window(w_id).unwrap();
-    let device = window.device();
-    let format = Frame::TEXTURE_FORMAT;
-    let msaa_samples = window.msaa_samples();
 
-    // Compute pipeline
-    let cs_desc = wgpu::include_wgsl!("../Shader/Physarum.wgsl");
-    let cs_mod = device.create_shader_module(&cs_desc);
-    let cs_slime_di_desc = wgpu::include_wgsl!("../Shader/Slime.wgsl");
-    let cs_slime_di_mod = device.create_shader_module(&cs_slime_di_desc);
-    // Buffer for physarum agents
-    // x, y, phi, 3*sensor (bool) as u32 since bool not supported
-    let mut agents_init: Vec<Agent> = Vec::with_capacity(n_agents);
-    for _ in 0 .. n_agents {
-        agents_init.push(
-            Agent{
-                x: rng.gen_range(0. .. size_x as f32),
-                y: rng.gen_range(0. .. size_y as f32),
-                phi: rng.gen_range(-3.14 .. 3.14),
-                sens: 0
+        // The instance is a handle to our GPU
+        // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
+        let instance = wgpu::Instance::new(wgpu::Backends::all());
+        let surface = unsafe { instance.create_surface(window) };
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::default(),
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
+            })
+            .await
+            .unwrap();
+
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: None,
+                    features: wgpu::Features::empty(),
+                    limits: wgpu::Limits::default()
+                },
+                None, // Trace path
+            )
+            .await
+            .unwrap();
+
+        let config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: surface.get_supported_formats(&adapter)[0],
+            width: size_x,
+            height: size_y,
+            present_mode: wgpu::PresentMode::Fifo,
+        };
+        surface.configure(&device, &config);
+
+        // Compute pipeline
+        let cs_desc = wgpu::include_wgsl!("../Shader/Physarum.wgsl");
+        let cs_mod = device.create_shader_module(cs_desc);
+        let cs_slime_di_desc = wgpu::include_wgsl!("../Shader/Slime.wgsl");
+        let cs_slime_di_mod = device.create_shader_module(cs_slime_di_desc);
+        // Buffer for physarum agents
+        // x, y, phi, 3*sensor (bool) as u32 since bool not supported
+        let mut agents_init: Vec<Agent> = Vec::with_capacity(n_agents);
+        for _ in 0 .. n_agents {
+            agents_init.push(
+                Agent{
+                    x: rng.gen_range(0. .. size_x as f32),
+                    y: rng.gen_range(0. .. size_y as f32),
+                    phi: rng.gen_range(-3.14 .. 3.14),
+                    sens: 0
+                }
+            );
+        }
+        let agents = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Physarum Agents"),
+            contents: bytemuck::cast_slice::<_, u8>(&agents_init),
+            usage:  wgpu::BufferUsages::STORAGE,
+        });
+
+        // Buffer for slime concentration
+        let xy_size: usize = (size_x * size_y) as usize;
+        let slime_size = (xy_size * std::mem::size_of::<f32>())
+                        as wgpu::BufferAddress;
+        let slime_agents = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("SLIME Agents"),
+            size: slime_size,
+            usage:  wgpu::BufferUsages::STORAGE |
+                    wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let slime_slime = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("SLIME Render"),
+            size: slime_size,
+            usage:  wgpu::BufferUsages::STORAGE |
+                    wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+
+        // Buffer for parameter
+        let uniforms = vec![Uniforms {n_agents: n_agents as u32,
+                                    size_x, size_y, decay}];
+        let usage = wgpu::BufferUsages::UNIFORM;
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("uniform-buffer"),
+            contents: bytemuck::cast_slice::<_, u8>(&uniforms),
+            usage,
+        });
+
+        // Compute Pipelines //
+        //____________________//
+        // Physarum
+        let bind_group_layout_physarum = create_bind_group_layout_compute(
+            &device, false);
+        let bind_group_physarum = create_physarum_bind_group(
+            &device,
+            &bind_group_layout_physarum,
+            &agents,
+            &slime_agents,
+            &uniform_buffer);
+        let pipeline_layout_physarum = create_pipeline_layout(
+            &device, &bind_group_layout_physarum, "Physarum Compute");
+        let physarum_pipeline = create_compute_pipeline(&device,
+                                                        &pipeline_layout_physarum,
+                                                        &cs_mod,
+                                                        "Physarum Pipeline");
+        // Slime
+        // dissipation and decay
+        let bind_group_layout_slime = create_bind_group_layout_compute(
+            &device, true);
+        let bind_group_slime = create_slime_bind_group(&device,
+                                                       &bind_group_layout_slime,
+                                                       &slime_agents,
+                                                       &slime_slime,
+                                                       &uniform_buffer);
+        let pipeline_layout_slime = create_pipeline_layout(
+            &device, &bind_group_layout_slime, "Slime Layout");
+        let slime_pipeline = create_compute_pipeline(
+            &device, &pipeline_layout_slime, &cs_slime_di_mod,
+            "Slime dissipation Pipeline");
+
+        // Shader for Render Pipeline
+        let vs_desc = wgpu::include_wgsl!("../Shader/passThrough.wgsl");
+        let vs_mod = device.create_shader_module(vs_desc);
+        let fs_desc = wgpu::include_wgsl!("../Shader/render.wgsl");
+        let fs_mod = device.create_shader_module(fs_desc);
+
+        let bind_group_layout_r = create_bind_group_layout_render(&device);
+        let bind_group_r = create_render_bind_group(
+            &device,
+            &bind_group_layout_r,
+            &slime_agents,
+            &uniform_buffer);
+        let pipeline_layout_r = create_pipeline_layout(
+            &device,
+            &bind_group_layout_r,
+            "Physarum Render");
+
+        let render_pipeline = device.create_render_pipeline(
+            &wgpu::RenderPipelineDescriptor {
+                label: Some("Render Pipeline"),
+                layout: Some(&pipeline_layout_r),
+                vertex: wgpu::VertexState {
+                    module: &vs_mod,
+                    entry_point: "main",
+                    buffers: &[Vertex::desc()],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &fs_mod,
+                    entry_point: "main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: config.format,
+                        blend: Some(wgpu::BlendState {
+                            color: wgpu::BlendComponent::REPLACE,
+                            alpha: wgpu::BlendComponent::REPLACE,
+                        }),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                    // or Features::POLYGON_MODE_POINT
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    // Requires Features::DEPTH_CLIP_CONTROL
+                    unclipped_depth: false,
+                    // Requires Features::CONSERVATIVE_RASTERIZATION
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                // If the pipeline will be used with a multiview render pass, this
+                // indicates how many array layers the attachments will have.
+                multiview: None,
+            });
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        Self {
+            surface,
+            device,
+            queue,
+            render_pipeline,
+            vertex_buffer,
+            slime_agents,
+            slime_slime,
+            slime_size,
+            bind_group_physarum,
+            bind_group_slime,
+            bind_group_r,
+            compute_physarum: physarum_pipeline,
+            compute_slime: slime_pipeline,
+        }
+    }
+
+    #[allow(unused_variables)]
+    fn input(&mut self, event: &WindowEvent) -> bool {
+        false
+    }
+
+    fn update(&mut self) {}
+
+    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+        let output = self.surface.get_current_texture()?;
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+
+        // Compute pass
+        let ce_desc = wgpu::CommandEncoderDescriptor {
+            label: Some("Command Encoder")
+        };
+        let mut encoder = self.device.create_command_encoder(&ce_desc);
+        {
+            let c_p_pass_desc = wgpu::ComputePassDescriptor {
+                label: Some("Physarum Compute Pass")
+            };
+            let mut c_p_pass = encoder.begin_compute_pass(&c_p_pass_desc);
+            c_p_pass.set_pipeline(&self.compute_physarum);
+            c_p_pass.set_bind_group(0, &self.bind_group_physarum, &[]);
+            c_p_pass.dispatch_workgroups(256, 1, 1);
+        }
+        {
+            let c_s_pass_desc = wgpu::ComputePassDescriptor {
+                label: Some("Slime Pass")
+            };
+            let mut c_s_pass = encoder.begin_compute_pass(&c_s_pass_desc);
+            c_s_pass.set_pipeline(&self.compute_slime);
+            c_s_pass.set_bind_group(0, &self.bind_group_slime, &[]);
+            c_s_pass.dispatch_workgroups(256, 1, 1);
+        }
+
+        encoder.copy_buffer_to_buffer(&self.slime_slime, 0,
+                                      &self.slime_agents, 0,
+                                      self.slime_size);
+
+        // Render pass
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.0,
+                            g: 0.0,
+                            b: 0.0,
+                            a: 1.0,
+                        }),
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            });
+            render_pass.set_bind_group(0, &self.bind_group_r, &[]);
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            let vertex_range = 0..VERTICES.len() as u32;
+            let instance_range = 0..1;
+            render_pass.draw(vertex_range, instance_range);
+        }
+        self.queue.submit(iter::once(encoder.finish()));
+        output.present();
+
+        Ok(())
+    }
+}
+
+pub async fn run() {
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new().build(&event_loop).unwrap();
+
+    // State::new uses async code, so we're going to wait for it to finish
+    let mut state = State::new(&window).await;
+
+    event_loop.run(move |event, _, control_flow| {
+        match event {
+            Event::WindowEvent {
+                ref event,
+                window_id,
+            } if window_id == window.id() => {
+                if !state.input(event) {
+                    // UPDATED!
+                    match event {
+                        WindowEvent::CloseRequested
+                        | WindowEvent::KeyboardInput {
+                            input:
+                                KeyboardInput {
+                                    state: ElementState::Pressed,
+                                    virtual_keycode: Some(VirtualKeyCode::Escape),
+                                    ..
+                                },
+                            ..
+                        } => *control_flow = ControlFlow::Exit,
+                        _ => {}
+                    }
+                }
             }
-        );
-    }
-    let agents = device.create_buffer_init(&wgpu::BufferInitDescriptor {
-        label: Some("Physarum Agents"),
-        contents: bytemuck::cast_slice::<_, u8>(&agents_init),
-        usage:  wgpu::BufferUsages::STORAGE,
+            Event::RedrawRequested(window_id) if window_id == window.id() => {
+                state.update();
+                match state.render() {
+                    Ok(_) => {}
+                    // Reconfigure the surface if it's lost or outdated
+                    Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated)
+                    => {},
+                    // The system is out of memory, we should probably quit
+                    Err(wgpu::SurfaceError::OutOfMemory)
+                    => *control_flow = ControlFlow::Exit,
+
+                    Err(wgpu::SurfaceError::Timeout)
+                    => println!("Surface timeout"),
+                }
+            }
+            Event::RedrawEventsCleared => {
+                // RedrawRequested will only trigger once, unless we manually
+                // request it.
+                window.request_redraw();
+            }
+            _ => {}
+        }
     });
-
-    // Buffer for slime concentration
-    let xy_size: usize = (size_x * size_y) as usize;
-    let slime_size = (xy_size * std::mem::size_of::<f32>())
-                     as wgpu::BufferAddress;
-    let slime_agents = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("SLIME Agents"),
-        size: slime_size,
-        usage:  wgpu::BufferUsages::STORAGE |
-                wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    let slime_slime = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("SLIME Render"),
-        size: slime_size,
-        usage:  wgpu::BufferUsages::STORAGE |
-                wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-
-    // Buffer for parameter
-    let uniforms = vec![Uniforms {n_agents: n_agents as u32,
-                                  size_x, size_y, decay}];
-    let usage = wgpu::BufferUsages::UNIFORM;
-    let uniform_buffer = device.create_buffer_init(&BufferInitDescriptor {
-        label: Some("uniform-buffer"),
-        contents: bytemuck::cast_slice::<_, u8>(&uniforms),
-        usage,
-    });
-
-    // Compute Pipelines //
-    //____________________//
-    // Physarum
-    let bind_group_layout_physarum = create_bind_group_layout_compute(device,
-                                                                      false);
-    let bind_group_physarum = create_physarum_bind_group(
-        device, &bind_group_layout_physarum, &agents, &n_agents,
-        &slime_agents, &xy_size, &uniform_buffer);
-    let pipeline_layout_physarum = create_pipeline_layout(
-        &device, &bind_group_layout_physarum, "Physarum Compute");
-    let physarum_pipeline = create_compute_pipeline(&device,
-                                                    &pipeline_layout_physarum,
-                                                    &cs_mod,
-                                                    "Physarum Pipeline");
-    // Slime
-    // dissipation and decay
-    let bind_group_layout_slime = create_bind_group_layout_compute(device,
-                                                                   true);
-    let bind_group_slime = create_slime_bind_group(device,
-                                                   &bind_group_layout_slime,
-                                                   &slime_agents, &slime_slime,
-                                                   &xy_size,
-                                                   &uniform_buffer);
-    let pipeline_layout_slime = create_pipeline_layout(
-        &device, &bind_group_layout_slime, "Slime Layout");
-    let slime_pipeline = create_compute_pipeline(
-        &device, &pipeline_layout_slime, &cs_slime_di_mod,
-        "Slime dissipation Pipeline");
-
-    // Render Pipeline
-    let vs_desc = wgpu::include_wgsl!("../Shader/passThrough.wgsl");
-    let vs_mod = device.create_shader_module(&vs_desc);
-    let fs_desc = wgpu::include_wgsl!("../Shader/render.wgsl");
-    let fs_mod = device.create_shader_module(&fs_desc);
-
-    let bind_group_layout_r =
-        create_bind_group_layout_render(device);
-    let bind_group_r = create_render_bind_group(device,
-                                                &bind_group_layout_r,
-                                                &slime_agents, &xy_size,
-                                                &uniform_buffer);
-    let pipeline_layout_r = create_pipeline_layout(device,
-                                                   &bind_group_layout_r,
-                                                   "Physarum Render");
-    let render_pipeline = create_render_pipeline(
-        device,
-        &pipeline_layout_r,
-        &vs_mod,
-        &fs_mod,
-        format,
-        msaa_samples,
-    );
-
-    let vertices_bytes = vertices_as_bytes(&VERTICES[..]);
-    let usage = wgpu::BufferUsages::VERTEX;
-    let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
-        label: None,
-        contents: vertices_bytes,
-        usage,
-    });
-
-    let physarum = Physarum {
-        agents,
-        slime_agents,
-        slime_slime,
-        slime_size,
-        uniform_buffer,
-        bind_group_physarum,
-        bind_group_slime,
-        compute_physarum: physarum_pipeline,
-        compute_slime: slime_pipeline,
-    };
-
-    Model {
-        bind_group_r,
-        vertex_buffer,
-        render_pipeline,
-        physarum
-    }
-}
-
-fn view(app: &App, model: &Model, frame: Frame) {
-    let window = app.main_window();
-    let device = window.device();
-
-    // Compute pass
-    let ce_desc = wgpu::CommandEncoderDescriptor {
-        label: Some("Command Encoder")
-    };
-    let mut encoder = device.create_command_encoder(&ce_desc);
-    {
-        let c_p_pass_desc = wgpu::ComputePassDescriptor {
-            label: Some("Physarum Compute Pass")
-        };
-        let mut c_p_pass = encoder.begin_compute_pass(&c_p_pass_desc);
-        c_p_pass.set_pipeline(&model.physarum.compute_physarum);
-        c_p_pass.set_bind_group(0, &model.physarum.bind_group_physarum, &[]);
-        c_p_pass.dispatch(256, 1, 1);
-    }
-    {
-        let c_s_pass_desc = wgpu::ComputePassDescriptor {
-            label: Some("Slime Pass")
-        };
-        let mut c_s_pass = encoder.begin_compute_pass(&c_s_pass_desc);
-        c_s_pass.set_pipeline(&model.physarum.compute_slime);
-        c_s_pass.set_bind_group(0, &model.physarum.bind_group_slime, &[]);
-        c_s_pass.dispatch(256, 1, 1);
-    }
-
-    encoder.copy_buffer_to_buffer(&model.physarum.slime_slime, 0,
-                                  &model.physarum.slime_agents, 0,
-                                  model.physarum.slime_size);
-    window.queue().submit(Some(encoder.finish()));
-
-    // Render pass
-    let mut r_encoder = frame.command_encoder();
-    let mut render_pass = wgpu::RenderPassBuilder::new()
-        .color_attachment(frame.texture_view(), |color| color)
-        .begin(&mut r_encoder);
-    render_pass.set_bind_group(0, &model.bind_group_r, &[]);
-    render_pass.set_pipeline(&model.render_pipeline);
-    render_pass.set_vertex_buffer(0, model.vertex_buffer.slice(..));
-    let vertex_range = 0..VERTICES.len() as u32;
-    let instance_range = 0..1;
-    render_pass.draw(vertex_range, instance_range);
-}
-
-
-// See the `nannou::wgpu::bytes` documentation for why this is necessary.
-fn vertices_as_bytes(data: &[Vertex]) -> &[u8] {
-    unsafe { wgpu::bytes::from_slice(data) }
 }

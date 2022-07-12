@@ -1,5 +1,6 @@
 use bytemuck::{Pod, Zeroable};
-use nannou::prelude::*;
+use wgpu;
+
 
 // The vertex type that we will use to represent a point on our triangle.
 #[repr(C)]
@@ -17,18 +18,6 @@ pub struct Uniforms {  // parameter
     pub decay: f32
 }
 
-pub struct Physarum {
-    pub agents: wgpu::Buffer,
-    pub slime_agents: wgpu::Buffer,
-    pub slime_slime: wgpu::Buffer,
-    pub slime_size: wgpu::BufferAddress,
-    pub uniform_buffer: wgpu::Buffer,
-    pub bind_group_physarum: wgpu::BindGroup,
-    pub bind_group_slime: wgpu::BindGroup,
-    pub compute_physarum: wgpu::ComputePipeline,
-    pub compute_slime: wgpu::ComputePipeline,
-}
-
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Agent {
@@ -41,61 +30,110 @@ unsafe impl Zeroable for Agent {}
 unsafe impl Pod for Agent {}
 unsafe impl Zeroable for Uniforms {}
 unsafe impl Pod for Uniforms {}
+unsafe impl Zeroable for Vertex {}
+unsafe impl Pod for Vertex {}
+
 
 pub fn create_bind_group_layout_compute(device: &wgpu::Device,
                                         read_only_first: bool)
 -> wgpu::BindGroupLayout
 {
-    let storage_dynamic = false;
-    let storage_readonly = false;
-    let uniform_dynamic = false;
-    wgpu::BindGroupLayoutBuilder::new()
-        .storage_buffer(
-            wgpu::ShaderStages::COMPUTE,
-            storage_dynamic,
-            read_only_first,
-        )
-        .storage_buffer(
-            wgpu::ShaderStages::COMPUTE,
-            storage_dynamic,
-            storage_readonly,
-        )
-        .uniform_buffer(wgpu::ShaderStages::COMPUTE, uniform_dynamic)
-        .build(device)
+    device.create_bind_group_layout(
+        &wgpu::BindGroupLayoutDescriptor{
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {
+                            read_only: read_only_first },
+                        has_dynamic_offset: false,
+                        min_binding_size: None },
+                    count: None
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {
+                            read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None },
+                    count: None
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None },
+                    count: None
+                }
+            ],
+            label: None,
+        }
+    )
 }
 
 pub fn create_bind_group_layout_render(
     device: &wgpu::Device)
 -> wgpu::BindGroupLayout
 {
-    let storage_dynamic = false;
-    let storage_readonly = true;
-    let uniform_dynamic = false;
-    wgpu::BindGroupLayoutBuilder::new()
-        .storage_buffer(
-            wgpu::ShaderStages::FRAGMENT,
-            storage_dynamic,
-            storage_readonly,
-        )
-        .uniform_buffer(wgpu::ShaderStages::FRAGMENT, uniform_dynamic)
-        .build(device)
+    device.create_bind_group_layout(
+        &wgpu::BindGroupLayoutDescriptor{
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {
+                            read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None },
+                    count: None
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None },
+                    count: None
+                }
+            ],
+            label: Some("Render Layout"),
+        }
+    )
 }
 
 pub fn create_physarum_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     agents: &wgpu::Buffer,
-    agent_size: &usize,
     slime: &wgpu::Buffer,
-    slime_size: &usize,
     uniform_buffer: &wgpu::Buffer)
 -> wgpu::BindGroup
 {
-    wgpu::BindGroupBuilder::new()
-        .buffer::<Agent>(agents, 0..*agent_size)
-        .buffer::<f32>(slime,  0..*slime_size)
-        .buffer::<Uniforms>(uniform_buffer, 0..1)
-        .build(device, layout)
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout,
+        label: Some("Physarum BG"),
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: agents.as_entire_binding()
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: slime.as_entire_binding()
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: uniform_buffer.as_entire_binding()
+            }
+        ]
+    })
 }
 
 pub fn create_slime_bind_group(
@@ -103,29 +141,50 @@ pub fn create_slime_bind_group(
     layout: &wgpu::BindGroupLayout,
     slime_in: &wgpu::Buffer,
     slime_out: &wgpu::Buffer,  // intermediate result for dissipation
-    slime_size: &usize,
     uniform_buffer: &wgpu::Buffer)
 -> wgpu::BindGroup
 {
-    wgpu::BindGroupBuilder::new()
-        .buffer::<f32>(slime_in, 0..*slime_size)
-        .buffer::<f32>(slime_out, 0..*slime_size)
-        .buffer::<Uniforms>(uniform_buffer, 0..1)
-        .build(device, layout)
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout,
+        label: Some("Slime BG"),
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: slime_in.as_entire_binding()
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: slime_out.as_entire_binding()
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: uniform_buffer.as_entire_binding()
+            }
+        ]
+    })
 }
 
 pub fn create_render_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     slime: &wgpu::Buffer,
-    slime_size: &usize,
     uniform_buffer: &wgpu::Buffer)
 -> wgpu::BindGroup
 {
-    wgpu::BindGroupBuilder::new()
-        .buffer::<f32>(slime, 0..*slime_size)
-        .buffer::<Uniforms>(uniform_buffer, 0..1)
-        .build(device, layout)
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout,
+        label: Some("Render BG"),
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: slime.as_entire_binding()
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: uniform_buffer.as_entire_binding()
+            }
+        ]
+    })
 }
 
 pub fn create_pipeline_layout(
@@ -158,20 +217,18 @@ pub fn create_compute_pipeline(
     device.create_compute_pipeline(&desc)
 }
 
-pub fn create_render_pipeline(
-    device: &wgpu::Device,
-    layout: &wgpu::PipelineLayout,
-    vs_mod: &wgpu::ShaderModule,
-    fs_mod: &wgpu::ShaderModule,
-    dst_format: wgpu::TextureFormat,
-    sample_count: u32)
--> wgpu::RenderPipeline
-{
-    wgpu::RenderPipelineBuilder::from_layout(layout, vs_mod)
-        .fragment_shader(fs_mod)
-        .color_format(dst_format)
-        .add_vertex_buffer::<Vertex>(&wgpu::vertex_attr_array![0 => Float32x2])
-        .sample_count(sample_count)
-        .primitive_topology(wgpu::PrimitiveTopology::TriangleStrip)
-        .build(device)
+impl Vertex {
+    pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float32x2,
+                }
+            ]
+        }
+    }
 }
