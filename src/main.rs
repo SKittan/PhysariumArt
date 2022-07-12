@@ -26,6 +26,7 @@ struct State {
     queue: wgpu::Queue,
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
     slime_agents: wgpu::Buffer,
     slime_slime: wgpu::Buffer,
     slime_size: wgpu::BufferAddress,
@@ -39,18 +40,19 @@ struct State {
 // The vertices that make up the rectangle to which the image will be drawn.
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [-1.0, 1.0],
+        position: [-1.0, -1.0],
     },
     Vertex {
-        position: [-1.0, -1.0],
+        position: [1.0, -1.0],
     },
     Vertex {
         position: [1.0, 1.0],
     },
     Vertex {
-        position: [1.0, -1.0],
+        position: [-1.0, 1.0],
     },
 ];
+const INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
 
 fn main() {
     pollster::block_on(run());
@@ -247,11 +249,20 @@ impl State {
                 multiview: None,
             });
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        let vertex_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(VERTICES),
+                usage: wgpu::BufferUsages::VERTEX,
+            }
+        );
+        let index_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Index Buffer"),
+                contents: bytemuck::cast_slice(INDICES),
+                usage: wgpu::BufferUsages::INDEX,
+            }
+        );
 
         Self {
             surface,
@@ -259,6 +270,7 @@ impl State {
             queue,
             render_pipeline,
             vertex_buffer,
+            index_buffer,
             slime_agents,
             slime_slime,
             slime_size,
@@ -334,9 +346,9 @@ impl State {
             render_pass.set_bind_group(0, &self.bind_group_r, &[]);
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            let vertex_range = 0..VERTICES.len() as u32;
-            let instance_range = 0..1;
-            render_pass.draw(vertex_range, instance_range);
+            render_pass.set_index_buffer(self.index_buffer.slice(..),
+                                         wgpu::IndexFormat::Uint16);
+            render_pass.draw_indexed(0..6, 0, 0..1);
         }
         self.queue.submit(iter::once(encoder.finish()));
         output.present();
