@@ -1,26 +1,19 @@
-[[block]]
-struct Slime {
-    c: [[stride(4)]] array<f32>; // concentration
-};
-[[group(0), binding(0)]]
-var<storage, read> slime: Slime;
-
-[[block]]
 struct Uniforms {
-    nAgents: u32;
-    sizeX: u32;
-    sizeY: u32;
-    decay: f32;
+    nAgents: u32,
+    sizeX: u32,
+    sizeY: u32,
+    decay: f32
 };
-[[group(0), binding(1)]]
-var<uniform> uniforms: Uniforms;
 
+@group(0) @binding(0) var<storage, read> slime: array<f32>;
+@group(0) @binding(1) var<uniform> uniforms: Uniforms;
 
-[[stage(fragment)]]
-fn main([[location(0)]] tex_coords: vec2<f32>) -> [[location(0)]] vec4<f32> {
+@fragment
+fn main(@location(0) tex_coords: vec2<f32>) -> @location(0) vec4<f32> {
     let x: u32 = u32(tex_coords.x*f32(uniforms.sizeX));
     let y: u32 = u32(tex_coords.y*f32(uniforms.sizeY));
     let index: u32 = x + y*uniforms.sizeX;
 
-    return vec4<f32>(vec3<f32>(slime.c[index]), 1.);
+    return vec4<f32>(vec3<f32>(0.5), 1.);
+    // return vec4<f32>(vec3<f32>(slime[index]), 1.);
 }
