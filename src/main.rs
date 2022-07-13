@@ -117,11 +117,13 @@ impl State {
         // Buffer for physarum agents
         // x, y, phi, 3*sensor (bool) as u32 since bool not supported
         let mut agents_init: Vec<Agent> = Vec::with_capacity(n_agents);
+        let c_x = size_x as f32 * 0.5;
+        let c_y = size_y as f32 * 0.5;
         for _ in 0 .. n_agents {
             agents_init.push(
                 Agent{
-                    x: rng.gen_range(0. .. size_x as f32),
-                    y: rng.gen_range(0. .. size_y as f32),
+                    x: rng.gen_range(0.9*c_x .. 1.1*c_x),
+                    y: rng.gen_range(0.9*c_y .. 1.1*c_y),
                     phi: rng.gen_range(-3.14 .. 3.14)
                 }
             );
