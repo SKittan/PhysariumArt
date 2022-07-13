@@ -43,7 +43,7 @@ fn main(@builtin(local_invocation_index) liIdx: u32)
                 } else {if (u32(y) == uniforms.sizeY) {
                     y = 0;
                 }}
-                let idx = u32(x)*uniforms.sizeX + u32(y);
+                let idx = u32(x) + u32(y)*uniforms.sizeX;
                 slime_out[i] = slime_out[i] + slime_in[idx];
         }}
         // calculate mean and decay
