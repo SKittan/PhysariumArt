@@ -18,8 +18,9 @@ struct Uniforms {
 };
 
 @group(0) @binding(0) var<storage, read_write> agents: array<Agent>;
-@group(0) @binding(1) var<storage, read_write> slime: array<f32>;
-@group(0) @binding(2) var<uniform> uniforms: Uniforms;
+@group(0) @binding(1) var<storage, read> slime_in: array<f32>;
+@group(0) @binding(2) var<storage, read_write> slime_out: array<f32>;
+@group(0) @binding(3) var<uniform> uniforms: Uniforms;
 
 @compute
 @workgroup_size(256)
@@ -49,10 +50,10 @@ fn main(@builtin(local_invocation_index) liIdx: u32)
              d_phi_sens<=uniforms.phi_sens_1;
              d_phi_sens = d_phi_sens + uniforms.d_phi_sens) {
             phi_sens = agents[i].phi - d_phi_sens;
-            c = slime[u32(round((cos(phi_sens)*uniforms.sens_range +
-                                 agents[i].x) +
-                                (sin(phi_sens)*uniforms.sens_range +
-                                 agents[i].y) * max_x))];
+            c = slime_in[u32(round((cos(phi_sens)*uniforms.sens_range +
+                                    agents[i].x) +
+                                    (sin(phi_sens)*uniforms.sens_range +
+                                    agents[i].y) * max_x))];
             if (c > c_max) {
                 c_max = c;
                 phi_max = phi_sens;
@@ -76,6 +77,6 @@ fn main(@builtin(local_invocation_index) liIdx: u32)
         }}
 
         let index: u32 = u32(round(agents[i].x + agents[i].y * max_x));
-        slime[index] = slime[index] + uniforms.deposit;
+        slime_out[index] = slime_out[index] + uniforms.deposit;
     }
 }

@@ -40,8 +40,7 @@ unsafe impl Zeroable for Vertex {}
 unsafe impl Pod for Vertex {}
 
 
-pub fn create_bind_group_layout_compute(device: &wgpu::Device,
-                                        read_only_first: bool)
+pub fn create_bind_group_layout_compute_agents(device: &wgpu::Device)
 -> wgpu::BindGroupLayout
 {
     device.create_bind_group_layout(
@@ -52,7 +51,58 @@ pub fn create_bind_group_layout_compute(device: &wgpu::Device,
                     visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage {
-                            read_only: read_only_first },
+                            read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None },
+                    count: None
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {
+                            read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None },
+                    count: None
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {
+                            read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None },
+                    count: None
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None },
+                    count: None
+                }
+            ],
+            label: None,
+        }
+    )
+}
+
+pub fn create_bind_group_layout_compute_slime(device: &wgpu::Device)
+-> wgpu::BindGroupLayout
+{
+    device.create_bind_group_layout(
+        &wgpu::BindGroupLayoutDescriptor{
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {
+                            read_only: true },
                         has_dynamic_offset: false,
                         min_binding_size: None },
                     count: None
@@ -118,7 +168,8 @@ pub fn create_physarum_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     agents: &wgpu::Buffer,
-    slime: &wgpu::Buffer,
+    slime_in: &wgpu::Buffer,
+    slime_out: &wgpu::Buffer,
     uniform_buffer: &wgpu::Buffer)
 -> wgpu::BindGroup
 {
@@ -132,10 +183,14 @@ pub fn create_physarum_bind_group(
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: slime.as_entire_binding()
+                resource: slime_in.as_entire_binding()
             },
             wgpu::BindGroupEntry {
                 binding: 2,
+                resource: slime_out.as_entire_binding()
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
                 resource: uniform_buffer.as_entire_binding()
             }
         ]

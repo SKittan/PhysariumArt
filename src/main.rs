@@ -13,7 +13,8 @@ use std::{iter, f32::consts::PI};
 mod gpu_create;
 use gpu_create::{create_physarum_bind_group,
                  create_slime_bind_group,
-                 create_bind_group_layout_compute,
+                 create_bind_group_layout_compute_agents,
+                 create_bind_group_layout_compute_slime,
                  create_render_bind_group,
                  create_bind_group_layout_render,
                  create_compute_pipeline, create_pipeline_layout,
@@ -142,14 +143,14 @@ impl State {
             label: Some("SLIME Agents"),
             size: slime_size,
             usage:  wgpu::BufferUsages::STORAGE |
-                    wgpu::BufferUsages::COPY_DST,
+                    wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
         let slime_slime = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("SLIME Render"),
             size: slime_size,
             usage:  wgpu::BufferUsages::STORAGE |
-                    wgpu::BufferUsages::COPY_SRC,
+                    wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
@@ -159,22 +160,24 @@ impl State {
                                       d_phi_sens, phi_sens_0, phi_sens_1,
                                       sens_range}];
         let usage = wgpu::BufferUsages::UNIFORM;
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("uniform-buffer"),
-            contents: bytemuck::cast_slice::<_, u8>(&uniforms),
-            usage,
-        });
+        let uniform_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("uniform-buffer"),
+                contents: bytemuck::cast_slice::<_, u8>(&uniforms),
+                usage,
+            });
 
         // Compute Pipelines //
         //____________________//
         // Physarum
-        let bind_group_layout_physarum = create_bind_group_layout_compute(
-            &device, false);
+        let bind_group_layout_physarum =
+            create_bind_group_layout_compute_agents(&device);
         let bind_group_physarum = create_physarum_bind_group(
             &device,
             &bind_group_layout_physarum,
             &agents,
             &slime_agents,
+            &slime_slime,
             &uniform_buffer);
         let pipeline_layout_physarum = create_pipeline_layout(
             &device, &bind_group_layout_physarum, "Physarum Compute");
@@ -184,12 +187,12 @@ impl State {
                                                         "Physarum Pipeline");
         // Slime
         // dissipation and decay
-        let bind_group_layout_slime = create_bind_group_layout_compute(
-            &device, true);
+        let bind_group_layout_slime =
+            create_bind_group_layout_compute_slime(&device);
         let bind_group_slime = create_slime_bind_group(&device,
                                                        &bind_group_layout_slime,
-                                                       &slime_agents,
                                                        &slime_slime,
+                                                       &slime_agents,
                                                        &uniform_buffer);
         let pipeline_layout_slime = create_pipeline_layout(
             &device, &bind_group_layout_slime, "Slime Layout");
@@ -330,8 +333,9 @@ impl State {
             c_s_pass.dispatch_workgroups(256, 1, 1);
         }
 
-        encoder.copy_buffer_to_buffer(&self.slime_slime, 0,
-                                      &self.slime_agents, 0,
+        // Update slime_slime for next agent step
+        encoder.copy_buffer_to_buffer(&self.slime_agents, 0,
+                                      &self.slime_slime, 0,
                                       self.slime_size);
 
         // Render pass
