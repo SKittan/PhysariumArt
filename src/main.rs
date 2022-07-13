@@ -63,6 +63,7 @@ impl State {
         // Parameter
         let (size_x, size_y) = (1024, 1024);
         let n_agents: usize = (2 as usize).pow(16);
+        let deposit: f32 = 0.0001;  // Slime deposition of each agent per step
         let decay: f32 = 0.9;
         let v: f32 = 0.1;
         let d_phi_sens: f32 = 0.25*PI;  // Stepping of sensor angle
@@ -152,7 +153,7 @@ impl State {
 
         // Buffer for parameter
         let uniforms = vec![Uniforms {n_agents: n_agents as u32,
-                                      size_x, size_y, decay, v,
+                                      size_x, size_y, deposit, decay, v,
                                       d_phi_sens, phi_sens_0, phi_sens_1,
                                       sens_range}];
         let usage = wgpu::BufferUsages::UNIFORM;

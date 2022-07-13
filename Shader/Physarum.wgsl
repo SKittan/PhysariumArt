@@ -8,6 +8,7 @@ struct Uniforms {
     nAgents: u32,
     sizeX: u32,
     sizeY: u32,
+    deposit: f32,
     decay: f32,
     v: f32,
     d_phi_sens: f32,
@@ -75,6 +76,6 @@ fn main(@builtin(local_invocation_index) liIdx: u32)
         }}
 
         let index: u32 = u32(round(agents[i].x + agents[i].y * max_x));
-        slime[index] = slime[index] + 0.01;
+        slime[index] = slime[index] + uniforms.deposit;
     }
 }

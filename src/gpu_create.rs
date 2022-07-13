@@ -15,6 +15,7 @@ pub struct Uniforms {  // parameter
     pub n_agents: u32,
     pub size_x: u32,
     pub size_y: u32,
+    pub deposit: f32,
     pub decay: f32,
     pub v: f32,
     pub d_phi_sens: f32,  // Stepping of sensor angle

@@ -2,6 +2,7 @@ struct Uniforms {
     nAgents: u32,
     sizeX: u32,
     sizeY: u32,
+    deposit: f32,
     decay: f32,
     v: f32,
     d_phi_sens: f32,
