@@ -8,7 +8,7 @@ use winit::{
 };
 use pollster;
 use rand::Rng;
-use std::iter;
+use std::{iter, f32::consts::PI};
 
 mod gpu_create;
 use gpu_create::{create_physarum_bind_group,
@@ -60,9 +60,15 @@ fn main() {
 
 impl State {
     async fn new(window: &Window) -> Self {
-        let (size_x, size_y) = (512, 512);
-        let n_agents: usize = 300;
+        // Parameter
+        let (size_x, size_y) = (1024, 1024);
+        let n_agents: usize = 512;
         let decay: f32 = 0.9;
+        let v: f32 = 0.1;
+        let d_phi_sens: f32 = 0.25*PI;  // Stepping of sensor angle
+        let phi_sens_0: f32 = -0.25*PI;  // Start of sensor angle
+        let phi_sens_1: f32 = 0.25*PI;  // End of sensor angle
+        let sens_range: f32 = 1.;
 
         let mut rng = rand::thread_rng();
 
@@ -115,8 +121,7 @@ impl State {
                 Agent{
                     x: rng.gen_range(0. .. size_x as f32),
                     y: rng.gen_range(0. .. size_y as f32),
-                    phi: rng.gen_range(-3.14 .. 3.14),
-                    sens: 0
+                    phi: rng.gen_range(-3.14 .. 3.14)
                 }
             );
         }
@@ -147,7 +152,9 @@ impl State {
 
         // Buffer for parameter
         let uniforms = vec![Uniforms {n_agents: n_agents as u32,
-                                    size_x, size_y, decay}];
+                                      size_x, size_y, decay, v,
+                                      d_phi_sens, phi_sens_0, phi_sens_1,
+                                      sens_range}];
         let usage = wgpu::BufferUsages::UNIFORM;
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniform-buffer"),
@@ -308,7 +315,7 @@ impl State {
             let mut c_p_pass = encoder.begin_compute_pass(&c_p_pass_desc);
             c_p_pass.set_pipeline(&self.compute_physarum);
             c_p_pass.set_bind_group(0, &self.bind_group_physarum, &[]);
-            c_p_pass.dispatch_workgroups(32, 1, 1);
+            c_p_pass.dispatch_workgroups(256, 1, 1);
         }
         {
             let c_s_pass_desc = wgpu::ComputePassDescriptor {
@@ -317,7 +324,7 @@ impl State {
             let mut c_s_pass = encoder.begin_compute_pass(&c_s_pass_desc);
             c_s_pass.set_pipeline(&self.compute_slime);
             c_s_pass.set_bind_group(0, &self.bind_group_slime, &[]);
-            c_s_pass.dispatch_workgroups(32, 1, 1);
+            c_s_pass.dispatch_workgroups(256, 1, 1);
         }
 
         encoder.copy_buffer_to_buffer(&self.slime_slime, 0,

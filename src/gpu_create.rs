@@ -15,7 +15,12 @@ pub struct Uniforms {  // parameter
     pub n_agents: u32,
     pub size_x: u32,
     pub size_y: u32,
-    pub decay: f32
+    pub decay: f32,
+    pub v: f32,
+    pub d_phi_sens: f32,  // Stepping of sensor angle
+    pub phi_sens_0: f32,  // Start of sensor angle
+    pub phi_sens_1: f32,  // End of sensor angle
+    pub sens_range: f32
 }
 
 #[repr(C)]
@@ -23,9 +28,9 @@ pub struct Uniforms {  // parameter
 pub struct Agent {
     pub x: f32,
     pub y: f32,
-    pub phi: f32,
-    pub sens: u32  // sensor values: 0, 1, 2, 4, 1+2, 2+4
+    pub phi: f32
 }
+
 unsafe impl Zeroable for Agent {}
 unsafe impl Pod for Agent {}
 unsafe impl Zeroable for Uniforms {}

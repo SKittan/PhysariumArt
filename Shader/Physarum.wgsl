@@ -2,14 +2,18 @@ struct Agent {
     x: f32,
     y: f32,
     phi: f32,
-    sens: u32  // sensor values: 0, 1, 2, 4, 1+2, 2+4
 };
 
 struct Uniforms {
     nAgents: u32,
     sizeX: u32,
     sizeY: u32,
-    decay: f32
+    decay: f32,
+    v: f32,
+    d_phi_sens: f32,
+    phi_sens_0: f32,
+    phi_sens_1: f32,
+    sens_range: f32
 };
 
 @group(0) @binding(0) var<storage, read_write> agents: array<Agent>;
@@ -17,24 +21,48 @@ struct Uniforms {
 @group(0) @binding(2) var<uniform> uniforms: Uniforms;
 
 @compute
-@workgroup_size(32)
+@workgroup_size(256)
 fn main(@builtin(local_invocation_index) liIdx: u32)
 {
-
-    let len = u32(f32(uniforms.nAgents) / 32.);
+    let max_x = f32(uniforms.sizeX);
+    let max_y = f32(uniforms.sizeY);
+    let len = u32(f32(uniforms.nAgents) / 256.);
     let i0 = liIdx * len;
+
+    var phi_max: f32;  // orientation at max. concentration
+    var phi_sens: f32;  // Current sensor orientation
+    var c: f32;
+    var c_max: f32;  // max. concentration
 
     for (var i=i0; i<i0+len; i=i+u32(1)){
         if(i > uniforms.nAgents) {
             break;
         }
 
-        agents[i].x = agents[i].x + cos(agents[i].phi);
-        agents[i].y = agents[i].y + sin(agents[i].phi);
+        // Detect max. slime concentration
+        // It's unlikely that there are often multiple cells
+        // with exact the same concentration -> first detection is selected
+        phi_max = 0.;  // init phi_max for a no slime case
+        c_max = 0.;
+        for (var d_phi_sens = uniforms.phi_sens_0;
+             d_phi_sens<=uniforms.phi_sens_1;
+             d_phi_sens = d_phi_sens + uniforms.d_phi_sens) {
+            phi_sens = agents[i].phi - d_phi_sens;
+            c = slime[u32(round((cos(phi_sens)*uniforms.sens_range +
+                                 agents[i].x) +
+                                (sin(phi_sens)*uniforms.sens_range +
+                                 agents[i].y) * max_x))];
+            if (c > c_max) {
+                c_max = c;
+                phi_max = phi_sens;
+            }
+        }
+
+        agents[i].phi = phi_max;
+        agents[i].x = agents[i].x + cos(agents[i].phi) * uniforms.v;
+        agents[i].y = agents[i].y + sin(agents[i].phi) * uniforms.v;
 
         // Wrap environment for agents
-        let max_x = f32(uniforms.sizeX);
-        let max_y = f32(uniforms.sizeY);
         if (agents[i].x < 0.){
             agents[i].x = agents[i].x + max_x;
         } else {if (agents[i].x > max_x) {

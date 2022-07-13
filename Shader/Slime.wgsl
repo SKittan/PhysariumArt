@@ -5,6 +5,8 @@ struct Uniforms {
     decay: f32,
     v: f32,
     d_phi_sens: f32,
+    phi_sens_0: f32,
+    phi_sens_1: f32,
     sens_range: f32
 };
 
@@ -13,10 +15,10 @@ struct Uniforms {
 @group(0) @binding(2) var<uniform> uniforms: Uniforms;
 
 @compute
-@workgroup_size(32)
+@workgroup_size(256)
 fn main(@builtin(local_invocation_index) liIdx: u32)
 {
-    let len = u32(f32(uniforms.sizeX * uniforms.sizeY) / 32.);
+    let len = u32(f32(uniforms.sizeX * uniforms.sizeY) / 256.);
     let i0 = liIdx * len;
 
     for (var i=i0; i<i0+len; i=i+u32(1)){
