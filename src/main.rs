@@ -125,7 +125,7 @@ impl State {
                 Agent{
                     x: rng.gen_range(0.9*c_x .. 1.1*c_x),
                     y: rng.gen_range(0.9*c_y .. 1.1*c_y),
-                    phi: rng.gen_range(-3.14 .. 3.14)
+                    phi: rng.gen_range(0. .. 2.*PI)
                 }
             );
         }

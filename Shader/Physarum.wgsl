@@ -26,6 +26,7 @@ struct Uniforms {
 @workgroup_size(256)
 fn main(@builtin(global_invocation_id) gId: vec3<u32>)
 {
+    let pi2 = 3.14159*2.;
     let max_x = f32(uniforms.sizeX);
     let max_y = f32(uniforms.sizeY);
     let len = u32(f32(uniforms.nAgents) / 256.);
@@ -61,6 +62,13 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>)
         }
 
         agents[i].phi = phi_max;
+        // limit phi between 0 and 360
+        if (agents[i].phi < 0.) {
+            agents[i].phi = pi2 + agents[i].phi;
+        } else { if(agents[i].phi > pi2) {
+            agents[i].phi = agents[i].phi - pi2;
+        }}
+
         agents[i].x = agents[i].x + cos(agents[i].phi) * uniforms.v;
         agents[i].y = agents[i].y + sin(agents[i].phi) * uniforms.v;
 
