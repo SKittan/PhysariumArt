@@ -121,10 +121,15 @@ impl State {
         let c_x = size_x as f32 * 0.5;
         let c_y = size_y as f32 * 0.5;
         for _ in 0 .. n_agents {
+            let phi_pos = rng.gen_range(0. .. 2.*PI);
+            let radius = rng.gen_range(0. .. 10.);
+
+            let x = c_x + phi_pos.cos() * radius;
+            let y = c_y + phi_pos.sin() * radius;
             agents_init.push(
                 Agent{
-                    x: rng.gen_range(0.9*c_x .. 1.1*c_x),
-                    y: rng.gen_range(0.9*c_y .. 1.1*c_y),
+                    x,
+                    y,
                     phi: rng.gen_range(0. .. 2.*PI)
                 }
             );
