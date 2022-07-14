@@ -17,10 +17,10 @@ struct Uniforms {
 
 @compute
 @workgroup_size(256)
-fn main(@builtin(local_invocation_index) liIdx: u32)
+fn main(@builtin(global_invocation_id) gId: vec3<u32>)
 {
     let len = u32(f32(uniforms.sizeX * uniforms.sizeY) / 256.);
-    let i0 = liIdx * len;
+    let i0 = gId.x * len;
 
     for (var i=i0; i<i0+len; i=i+u32(1)){
         // get slime pixel coordinates

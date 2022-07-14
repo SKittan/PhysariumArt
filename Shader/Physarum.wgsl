@@ -24,12 +24,12 @@ struct Uniforms {
 
 @compute
 @workgroup_size(256)
-fn main(@builtin(local_invocation_index) liIdx: u32)
+fn main(@builtin(global_invocation_id) gId: vec3<u32>)
 {
     let max_x = f32(uniforms.sizeX);
     let max_y = f32(uniforms.sizeY);
     let len = u32(f32(uniforms.nAgents) / 256.);
-    let i0 = liIdx * len;
+    let i0 = gId.x * len;
 
     var phi_max: f32;  // orientation at max. concentration
     var phi_sens: f32;  // Current sensor orientation
