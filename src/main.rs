@@ -64,9 +64,9 @@ impl State {
         // Parameter
         let (size_x, size_y) = (1024, 1024);
         let n_agents: usize = (2 as usize).pow(16);
-        let deposit: f32 = 0.1;  // Slime deposition of each agent per step
+        let deposit: f32 = 0.01;  // Slime deposition of each agent per step
         let decay: f32 = 0.9;
-        let v: f32 = 0.1;
+        let v: f32 = 1.;
         let d_phi_sens: f32 = 0.25*PI;  // Stepping of sensor angle
         let phi_sens_0: f32 = -0.25*PI;  // Start of sensor angle
         let phi_sens_1: f32 = 0.25*PI;  // End of sensor angle
