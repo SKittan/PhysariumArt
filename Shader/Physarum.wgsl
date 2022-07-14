@@ -52,9 +52,9 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>)
              d_phi_sens = d_phi_sens + uniforms.d_phi_sens) {
             phi_sens = agents[i].phi - d_phi_sens;
             c = slime_in[u32(round((cos(phi_sens)*uniforms.sens_range +
-                                    agents[i].x) +
-                                    (sin(phi_sens)*uniforms.sens_range +
-                                    agents[i].y) * max_x))];
+                                    agents[i].x)) +
+                             round((sin(phi_sens)*uniforms.sens_range +
+                                    agents[i].y)) * max_x)];
             if (c > c_max) {
                 c_max = c;
                 phi_max = phi_sens;
@@ -84,7 +84,7 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>)
             agents[i].y = max_y - agents[i].y;
         }}
 
-        let index: u32 = u32(round(agents[i].x + agents[i].y * max_x));
+        let index: u32 = u32(round(agents[i].x) + round(agents[i].y) * max_x);
         slime_out[index] = slime_out[index] + uniforms.deposit;
     }
 }
