@@ -16,8 +16,9 @@ struct Uniforms {
 
 @fragment
 fn main(@location(0) tex_coords: vec2<f32>) -> @location(0) vec4<f32> {
-    let index = u32(0.5*(tex_coords.x+tex_coords.y)
-                    * f32(uniforms.sizeX*uniforms.sizeY));
+    let x = u32(tex_coords.x * f32(uniforms.sizeX));
+    let y = u32(tex_coords.y * f32(uniforms.sizeY));
+    let index = x + y*uniforms.sizeX;
 
     return vec4<f32>(vec3<f32>(slime[index]), 1.);
 }
