@@ -64,9 +64,7 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>,
                                     agents[i].x)) +
                              floor((sin(phi_sens)*uniforms.sens_range +
                                     agents[i].y)) * max_x)];
-            // get slight exploration
-            c = c * 1000.;
-            c = round(c) / 1000.;
+
             if (c > c_max) {
                 c_max = c;
                 phi_max = phi_sens;

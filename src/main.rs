@@ -67,12 +67,12 @@ impl State {
         let (size_x, size_y) = (512, 512);
         let n_agents: usize = (2 as usize).pow(22);
         let deposit: f32 = 0.0001;  // Slime deposition of each agent per step
-        let decay: f32 = 0.2;
-        let v: f32 = 1.;
+        let decay: f32 = 0.8;
+        let v: f32 = 0.5;
         let d_phi_sens: f32 = 0.25*PI;  // Stepping of sensor angle
         let phi_sens_0: f32 = -0.25*PI;  // Start of sensor angle
         let phi_sens_1: f32 = 0.25*PI;  // End of sensor angle
-        let sens_range: f32 = 25.;
+        let sens_range: f32 = 20.;
         let seed_1: f32 = rng.gen_range(1e7..9e14);
         let seed_2: f32 = rng.gen_range(1e7..9e14);
 
