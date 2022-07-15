@@ -14,7 +14,9 @@ struct Uniforms {
     d_phi_sens: f32,
     phi_sens_0: f32,
     phi_sens_1: f32,
-    sens_range: f32
+    sens_range: f32,
+    seed_1: f32,
+    seed_2: f32
 };
 
 @group(0) @binding(0) var<storage, read_write> agents: array<Agent>;
@@ -23,9 +25,9 @@ struct Uniforms {
 @group(0) @binding(3) var<uniform> uniforms: Uniforms;
 
 
-fn rng(seed: f32) -> f32
+fn rng(seed_1: f32, seed_2: f32) -> f32
 {
-    return cos(sin(seed) * 37846193286438.1234);
+    return cos(sin(seed_1) * seed_2);
 }
 
 @compute
@@ -68,7 +70,9 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>,
             if (c > c_max) {
                 c_max = c;
                 phi_max = phi_sens;
-            } else {if ((c == c_max) && (rng(f32(lIdx+i)) > 0.)){
+            } else {if ((c == c_max) &&
+                        (rng(f32(lIdx)*uniforms.seed_1, uniforms.seed_2)) > 0.)
+            {
                 // randomly take new phi
                 phi_max = phi_sens;
             }}

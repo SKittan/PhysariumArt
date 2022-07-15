@@ -61,6 +61,8 @@ fn main() {
 
 impl State {
     async fn new(window: &Window) -> Self {
+        let mut rng = rand::thread_rng();
+
         // Parameter
         let (size_x, size_y) = (512, 512);
         let n_agents: usize = (2 as usize).pow(21);
@@ -71,8 +73,9 @@ impl State {
         let phi_sens_0: f32 = -0.25*PI;  // Start of sensor angle
         let phi_sens_1: f32 = 0.25*PI;  // End of sensor angle
         let sens_range: f32 = 25.;
+        let seed_1: f32 = rng.gen_range(1e7..9e14);
+        let seed_2: f32 = rng.gen_range(1e7..9e14);
 
-        let mut rng = rand::thread_rng();
 
         window.set_inner_size(winit::dpi::PhysicalSize::new(size_x, size_y));
 
@@ -163,7 +166,7 @@ impl State {
         let uniforms = vec![Uniforms {n_agents: n_agents as u32,
                                       size_x, size_y, deposit, decay, v,
                                       d_phi_sens, phi_sens_0, phi_sens_1,
-                                      sens_range}];
+                                      sens_range, seed_1, seed_2}];
         let usage = wgpu::BufferUsages::UNIFORM;
         let uniform_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {

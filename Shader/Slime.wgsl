@@ -8,7 +8,9 @@ struct Uniforms {
     d_phi_sens: f32,
     phi_sens_0: f32,
     phi_sens_1: f32,
-    sens_range: f32
+    sens_range: f32,
+    seed_1: f32,
+    seed_2: f32
 };
 
 @group(0) @binding(0) var<storage, read> slime_in: array<f32>;
