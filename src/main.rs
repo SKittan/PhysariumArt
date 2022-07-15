@@ -65,7 +65,7 @@ impl State {
 
         // Parameter
         let (size_x, size_y) = (512, 512);
-        let n_agents: usize = (2 as usize).pow(21);
+        let n_agents: usize = (2 as usize).pow(22);
         let deposit: f32 = 0.0001;  // Slime deposition of each agent per step
         let decay: f32 = 0.2;
         let v: f32 = 1.;
@@ -121,14 +121,9 @@ impl State {
         // Buffer for physarum agents
         // x, y, phi, 3*sensor (bool) as u32 since bool not supported
         let mut agents_init: Vec<Agent> = Vec::with_capacity(n_agents);
-        let c_x = size_x as f32 * 0.5;
-        let c_y = size_y as f32 * 0.5;
         for _ in 0 .. n_agents {
-            let phi_pos = rng.gen_range(0. .. 2.*PI);
-            let radius = rng.gen_range(0. .. 250.);
-
-            let x = c_x + phi_pos.cos() * radius;
-            let y = c_y + phi_pos.sin() * radius;
+            let x = rng.gen_range(0. .. size_x as f32);
+            let y = rng.gen_range(0. .. size_y as f32);
             agents_init.push(
                 Agent{
                     x,
