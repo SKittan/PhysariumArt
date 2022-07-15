@@ -22,9 +22,16 @@ struct Uniforms {
 @group(0) @binding(2) var<storage, read_write> slime_out: array<f32>;
 @group(0) @binding(3) var<uniform> uniforms: Uniforms;
 
+
+fn rng(seed: f32) -> f32
+{
+    return cos(sin(seed) * 37846193286438.1234);
+}
+
 @compute
 @workgroup_size(256)
-fn main(@builtin(global_invocation_id) gId: vec3<u32>)
+fn main(@builtin(global_invocation_id) gId: vec3<u32>,
+        @builtin(local_invocation_index) lIdx: u32)
 {
     let pi2 = 3.14159*2.;
     let max_x = f32(uniforms.sizeX);
@@ -55,10 +62,16 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>)
                                     agents[i].x)) +
                              floor((sin(phi_sens)*uniforms.sens_range +
                                     agents[i].y)) * max_x)];
+            // get slight exploration
+            c = c * 1000.;
+            c = round(c) / 1000.;
             if (c > c_max) {
                 c_max = c;
                 phi_max = phi_sens;
-            }
+            } else {if ((c == c_max) && (rng(f32(lIdx+i)) > 0.)){
+                // randomly take new phi
+                phi_max = phi_sens;
+            }}
         }
 
         agents[i].phi = phi_max;
