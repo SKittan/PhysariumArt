@@ -62,15 +62,15 @@ fn main() {
 impl State {
     async fn new(window: &Window) -> Self {
         // Parameter
-        let (size_x, size_y) = (1024, 1024);
-        let n_agents: usize = (2 as usize).pow(16);
-        let deposit: f32 = 0.01;  // Slime deposition of each agent per step
-        let decay: f32 = 0.9;
+        let (size_x, size_y) = (512, 512);
+        let n_agents: usize = (2 as usize).pow(21);
+        let deposit: f32 = 0.0001;  // Slime deposition of each agent per step
+        let decay: f32 = 0.2;
         let v: f32 = 1.;
         let d_phi_sens: f32 = 0.25*PI;  // Stepping of sensor angle
         let phi_sens_0: f32 = -0.25*PI;  // Start of sensor angle
         let phi_sens_1: f32 = 0.25*PI;  // End of sensor angle
-        let sens_range: f32 = 1.;
+        let sens_range: f32 = 25.;
 
         let mut rng = rand::thread_rng();
 
@@ -122,7 +122,7 @@ impl State {
         let c_y = size_y as f32 * 0.5;
         for _ in 0 .. n_agents {
             let phi_pos = rng.gen_range(0. .. 2.*PI);
-            let radius = rng.gen_range(0. .. 10.);
+            let radius = rng.gen_range(0. .. 250.);
 
             let x = c_x + phi_pos.cos() * radius;
             let y = c_y + phi_pos.sin() * radius;
