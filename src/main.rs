@@ -64,20 +64,22 @@ impl State {
         let mut rng = rand::thread_rng();
 
         // Parameter
-        let (size_x, size_y) = (512, 512);
-        let n_agents: usize = (2 as usize).pow(22);
-        let deposit: f32 = 0.0001;  // Slime deposition of each agent per step
-        let decay: f32 = 0.8;
-        let v: f32 = 0.5;
+        const SIZE_X: u32 = 512;
+        const SIZE_Y: u32 = 512;
+        const N_AGENTS: usize = (2 as usize).pow(22);
+        // Slime deposition of each agent per step
+        let deposit: f32 = rng.gen_range(0.0001 .. 0.1);
+        let decay: f32 = rng.gen_range(0.1 .. 0.9);
+        let v: f32 = rng.gen_range(0.5 .. 25.);
         let d_phi_sens: f32 = 0.25*PI;  // Stepping of sensor angle
         let phi_sens_0: f32 = -0.25*PI;  // Start of sensor angle
         let phi_sens_1: f32 = 0.25*PI;  // End of sensor angle
-        let sens_range: f32 = 20.;
+        let sens_range: f32 = rng.gen_range(1. .. 50.);
         let seed_1: f32 = rng.gen_range(1e7..9e14);
         let seed_2: f32 = rng.gen_range(1e7..9e14);
 
 
-        window.set_inner_size(winit::dpi::PhysicalSize::new(size_x, size_y));
+        window.set_inner_size(winit::dpi::PhysicalSize::new(SIZE_X, SIZE_Y));
 
         // The instance is a handle to our GPU
         // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
@@ -107,8 +109,8 @@ impl State {
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface.get_supported_formats(&adapter)[0],
-            width: size_x,
-            height: size_y,
+            width: SIZE_X,
+            height: SIZE_Y,
             present_mode: wgpu::PresentMode::Fifo,
         };
         surface.configure(&device, &config);
@@ -120,10 +122,10 @@ impl State {
         let cs_slime_di_mod = device.create_shader_module(cs_slime_di_desc);
         // Buffer for physarum agents
         // x, y, phi, 3*sensor (bool) as u32 since bool not supported
-        let mut agents_init: Vec<Agent> = Vec::with_capacity(n_agents);
-        for _ in 0 .. n_agents {
-            let x = rng.gen_range(0. .. size_x as f32);
-            let y = rng.gen_range(0. .. size_y as f32);
+        let mut agents_init: Vec<Agent> = Vec::with_capacity(N_AGENTS);
+        for _ in 0 .. N_AGENTS {
+            let x = rng.gen_range(0. .. SIZE_X as f32);
+            let y = rng.gen_range(0. .. SIZE_Y as f32);
             agents_init.push(
                 Agent{
                     x,
@@ -139,8 +141,8 @@ impl State {
         });
 
         // Buffer for slime concentration
-        let xy_size: usize = (size_x * size_y) as usize;
-        let slime_size = (xy_size * std::mem::size_of::<f32>())
+        const XY_SIZE: usize = (SIZE_X * SIZE_Y) as usize;
+        let slime_size = (XY_SIZE * std::mem::size_of::<f32>())
                         as wgpu::BufferAddress;
         let slime_agents = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("SLIME Agents"),
@@ -158,8 +160,9 @@ impl State {
         });
 
         // Buffer for parameter
-        let uniforms = vec![Uniforms {n_agents: n_agents as u32,
-                                      size_x, size_y, deposit, decay, v,
+        let uniforms = vec![Uniforms {n_agents: N_AGENTS as u32,
+                                      size_x: SIZE_X, size_y: SIZE_Y,
+                                      deposit, decay, v,
                                       d_phi_sens, phi_sens_0, phi_sens_1,
                                       sens_range, seed_1, seed_2}];
         let usage = wgpu::BufferUsages::UNIFORM;
