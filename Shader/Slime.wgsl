@@ -49,6 +49,6 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>)
                 slime_out[i] = slime_out[i] + slime_in[idx];
         }}
         // calculate mean and decay
-        slime_out[i] = min(slime_out[i] / 9. * 0.9, 1.);
+        slime_out[i] = min(slime_out[i] / 9. * uniforms.decay, 1.);
     }
 }
