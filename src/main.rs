@@ -7,8 +7,9 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 use pollster;
-use rand::Rng;
-use std::{iter, f32::consts::PI};
+use rand::{Rng, prelude::ThreadRng};
+use serde_json;
+use std::{iter, f32::consts::PI, fs};
 
 mod gpu_create;
 use gpu_create::{create_physarum_bind_group,
@@ -37,6 +38,7 @@ struct State {
     compute_physarum: wgpu::ComputePipeline,
     compute_slime: wgpu::ComputePipeline,
 }
+
 
 // The vertices that make up the rectangle to which the image will be drawn.
 const VERTICES: &[Vertex] = &[
@@ -67,17 +69,15 @@ impl State {
         const SIZE_X: u32 = 512;
         const SIZE_Y: u32 = 512;
         const N_AGENTS: usize = (2 as usize).pow(22);
-        // Slime deposition of each agent per step
-        let deposit: f32 = rng.gen_range(0.0001 .. 0.1);
-        let decay: f32 = rng.gen_range(0.1 .. 0.9);
-        let v: f32 = rng.gen_range(0.5 .. 25.);
-        let d_phi_sens: f32 = 0.25*PI;  // Stepping of sensor angle
-        let phi_sens_0: f32 = -0.25*PI;  // Start of sensor angle
-        let phi_sens_1: f32 = 0.25*PI;  // End of sensor angle
-        let sens_range: f32 = rng.gen_range(1. .. 50.);
-        let seed_1: f32 = rng.gen_range(1e7..9e14);
-        let seed_2: f32 = rng.gen_range(1e7..9e14);
+        // init shader seeds
+        let seed_1 = rng.gen_range(1e7..9e14);
+        let seed_2 = rng.gen_range(1e7..9e14);
 
+        let config_file = "./config.json";
+
+        // Load Config from json file
+        let mut cfg = Config::new(&mut rng);
+        cfg.load_json(&config_file);
 
         window.set_inner_size(winit::dpi::PhysicalSize::new(SIZE_X, SIZE_Y));
 
@@ -106,14 +106,14 @@ impl State {
             .await
             .unwrap();
 
-        let config = wgpu::SurfaceConfiguration {
+        let srf_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface.get_supported_formats(&adapter)[0],
             width: SIZE_X,
             height: SIZE_Y,
             present_mode: wgpu::PresentMode::Fifo,
         };
-        surface.configure(&device, &config);
+        surface.configure(&device, &srf_config);
 
         // Compute pipeline
         let cs_desc = wgpu::include_wgsl!("../Shader/Physarum.wgsl");
@@ -162,9 +162,12 @@ impl State {
         // Buffer for parameter
         let uniforms = vec![Uniforms {n_agents: N_AGENTS as u32,
                                       size_x: SIZE_X, size_y: SIZE_Y,
-                                      deposit, decay, v,
-                                      d_phi_sens, phi_sens_0, phi_sens_1,
-                                      sens_range, seed_1, seed_2}];
+                                      deposit: cfg.deposit, decay: cfg.decay,
+                                      v: cfg.v,d_phi_sens: cfg.d_phi_sens,
+                                      phi_sens_0: cfg.phi_sens_0,
+                                      phi_sens_1: cfg.phi_sens_1,
+                                      sens_range: cfg.sens_range,
+                                      seed_1, seed_2}];
         let usage = wgpu::BufferUsages::UNIFORM;
         let uniform_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
@@ -236,7 +239,7 @@ impl State {
                     module: &fs_mod,
                     entry_point: "main",
                     targets: &[Some(wgpu::ColorTargetState {
-                        format: config.format,
+                        format: srf_config.format,
                         blend: Some(wgpu::BlendState {
                             color: wgpu::BlendComponent::REPLACE,
                             alpha: wgpu::BlendComponent::REPLACE,
@@ -430,4 +433,77 @@ pub async fn run() {
             _ => {}
         }
     });
+}
+
+struct Config {
+    deposit: f32,  // Slime deposition of each agent per step
+    decay: f32,
+    v: f32,
+    d_phi_sens: f32,  // Stepping of sensor angle
+    phi_sens_0: f32,  // Start of sensor angle
+    phi_sens_1: f32,  // End of sensor angle
+    sens_range: f32
+}
+
+impl Config {
+    fn new(rng: &mut ThreadRng) -> Config {
+        Config {
+            deposit: rng.gen_range(0.0001 .. 0.1),
+            decay: rng.gen_range(0.1 .. 0.9),
+            v: rng.gen_range(0.5 .. 25.),
+            d_phi_sens: 0.25*PI,
+            phi_sens_0: -0.25*PI,
+            phi_sens_1: 0.25*PI,
+            sens_range: rng.gen_range(1. .. 50.)
+        }
+    }
+
+    fn load_json(&mut self, config_file: &str) {
+        let data = fs::read_to_string(config_file);
+        let data = match data {
+            Ok(data) => data,
+            Err(_) => {
+                println!("Error open config file: {:?}", config_file);
+                println!("Init with random configuration.");
+                self.show_state();
+                "".to_string()
+            }
+        };
+        if data != "" {
+            let json_res: Result<serde_json::Value, serde_json::Error> =
+                serde_json::from_str(&data);
+            match json_res {
+                Ok(json) => {
+                    self.deposit = json["deposit"].as_f64().unwrap() as f32;
+                    self.decay = json["decay"].as_f64().unwrap() as f32;
+                    self.v = json["v"].as_f64().unwrap() as f32;
+                    self.d_phi_sens =
+                        json["d_phi_sens"].as_f64().unwrap() as f32;
+                    self.phi_sens_0 =
+                        json["phi_sens_0"].as_f64().unwrap() as f32;
+                    self.phi_sens_1 =
+                        json["phi_sens_1"].as_f64().unwrap() as f32;
+                    self.sens_range =
+                        json["sens_range"].as_f64().unwrap() as f32;
+                },
+                Err(e) => {
+                    println!("Error reading config: {:?}", e);
+                    println!("Init with random configuration.");
+                    self.show_state();
+                }
+            };
+        }
+    }
+
+    fn show_state(&self) {
+        println!("Physarum configuration:\n--");
+        println!("  deposit: {:?}", self.deposit);
+        println!("  decay: {:?}", self.decay);
+        println!("  v: {:?}", self.v);
+        println!("  d_phi_sens: {:?}", self.d_phi_sens);
+        println!("  phi_sens_0: {:?}", self.phi_sens_0);
+        println!("  phi_sens_1: {:?}", self.phi_sens_1);
+        println!("  sens_range: {:?}", self.sens_range);
+    }
+
 }
