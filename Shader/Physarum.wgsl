@@ -77,9 +77,9 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>,
         }
 
         agents[i].phi = phi_max;
-        // limit phi between 0 and 360
-        if (agents[i].phi < 0.) {
-            agents[i].phi = pi2 + agents[i].phi;
+        // limit phi between -360 and 360
+        if (agents[i].phi < -pi2) {
+            agents[i].phi = agents[i].phi + pi2;
         } else { if(agents[i].phi > pi2) {
             agents[i].phi = agents[i].phi - pi2;
         }}
