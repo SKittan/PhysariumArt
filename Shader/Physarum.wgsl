@@ -65,7 +65,6 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>,
     var phi_sens: f32;  // Current sensor orientation
     var c: f32;
     var c_max: f32;  // max. concentration
-    var limit: bool;
 
     for (var i=i0; i<i0+len; i=i+u32(1)){
         if(i > uniforms.nAgents) {
@@ -102,29 +101,13 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>,
             agents[i].phi = agents[i].phi - pi2;
         }}
 
-        agents[i].x = agents[i].x + cos(agents[i].phi) * uniforms.v;
-        agents[i].y = agents[i].y + sin(agents[i].phi) * uniforms.v;
+        agents[i].x = min(max(agents[i].x +
+                              cos(agents[i].phi) * uniforms.v, 0.), max_x);
+        agents[i].y = min(max(agents[i].y +
+                              sin(agents[i].phi) * uniforms.v, 0.), max_y);
 
-        // Mirror agents
-        limit = false;
-        if (agents[i].x < 0.){
-            agents[i].x = 0.;
-            limit = true;
-        } else {if (agents[i].x > max_x) {
-            agents[i].x = max_x;
-            limit = true;
-        }}
-        if (agents[i].y < 0.){
-            agents[i].y = 0.;
-            limit = true;
-        } else {if (agents[i].y > max_y) {
-            agents[i].y = max_y;
-            limit = true;
-        }}
-
-        if (limit) {agents[i].phi = -agents[i].phi;}
-
-        let index: u32 = u32(floor(agents[i].x) + floor(agents[i].y) * max_x);
+        let index: u32 = u32(floor(agents[i].x)) +
+                         u32(floor(agents[i].y)) * uniforms.sizeX;
         slime_out[index] = slime_out[index] + uniforms.deposit;
     }
 }
