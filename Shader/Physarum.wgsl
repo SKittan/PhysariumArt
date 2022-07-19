@@ -16,6 +16,7 @@ struct Uniforms {
     phi_sens_1: f32,
     sens_range_min: f32,
     sens_range_max: f32,
+    sense_steps: f32,
     seed_1: f32,
     seed_2: f32
 };
@@ -46,7 +47,7 @@ fn sense(phi: f32, a_x: f32, a_y: f32, max_x: f32, max_y: f32) -> f32
         c = c + slime_in[s_i];
     }
 
-    return c;
+    return c / uniforms.sense_steps;
 }
 
 @compute

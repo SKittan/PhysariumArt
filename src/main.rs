@@ -168,6 +168,8 @@ impl State {
                                       phi_sens_1: cfg.phi_sens_1,
                                       sens_range_min: cfg.sens_range_min,
                                       sens_range_max: cfg.sens_range_max,
+                                      sense_steps: cfg.sens_range_max -
+                                                   cfg.sens_range_min + 1.,
                                       seed_1, seed_2}];
         let usage = wgpu::BufferUsages::UNIFORM;
         let uniform_buffer = device.create_buffer_init(

@@ -10,6 +10,7 @@ struct Uniforms {
     phi_sens_1: f32,
     sens_range_min: f32,
     sens_range_max: f32,
+    sense_steps: f32,
     seed_1: f32,
     seed_2: f32
 };
