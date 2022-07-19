@@ -8,7 +8,8 @@ struct Uniforms {
     d_phi_sens: f32,
     phi_sens_0: f32,
     phi_sens_1: f32,
-    sens_range: f32,
+    sens_range_min: f32,
+    sens_range_max: f32,
     seed_1: f32,
     seed_2: f32
 };
@@ -35,18 +36,12 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>)
             for(var dy=-1; dy<2; dy=dy+1){
                 var x = i32(x0) + dx;
                 var y = i32(y0) + dy;
-                if (x < 0) {
-                    x = i32(uniforms.sizeX) - 1;
-                } else {if (u32(x) == uniforms.sizeX) {
-                    x = 0;
-                }}
-                if (y < 0) {
-                    y = i32(uniforms.sizeY) - 1;
-                } else {if (u32(y) == uniforms.sizeY) {
-                    y = 0;
-                }}
-                let idx = u32(x) + u32(y)*uniforms.sizeX;
-                slime_out[i] = slime_out[i] + slime_in[idx];
+                if (x >= 0 || u32(x) < uniforms.sizeX ||
+                    y >= 0 || u32(y) < uniforms.sizeY)
+                {
+                    let idx = u32(x) + u32(y)*uniforms.sizeX;
+                    slime_out[i] = slime_out[i] + slime_in[idx];
+                }
         }}
         // calculate mean and decay
         slime_out[i] = min(slime_out[i] / 9. * uniforms.decay, 1.);

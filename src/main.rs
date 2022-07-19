@@ -166,7 +166,8 @@ impl State {
                                       v: cfg.v,d_phi_sens: cfg.d_phi_sens,
                                       phi_sens_0: cfg.phi_sens_0,
                                       phi_sens_1: cfg.phi_sens_1,
-                                      sens_range: cfg.sens_range,
+                                      sens_range_min: cfg.sens_range_min,
+                                      sens_range_max: cfg.sens_range_max,
                                       seed_1, seed_2}];
         let usage = wgpu::BufferUsages::UNIFORM;
         let uniform_buffer = device.create_buffer_init(
@@ -442,7 +443,8 @@ struct Config {
     d_phi_sens: f32,  // Stepping of sensor angle
     phi_sens_0: f32,  // Start of sensor angle
     phi_sens_1: f32,  // End of sensor angle
-    sens_range: f32
+    sens_range_min: f32,
+    sens_range_max: f32
 }
 
 impl Config {
@@ -454,7 +456,8 @@ impl Config {
             d_phi_sens: 0.25*PI,
             phi_sens_0: -0.25*PI,
             phi_sens_1: 0.25*PI,
-            sens_range: rng.gen_range(1. .. 50.)
+            sens_range_min: rng.gen_range(1. .. 5.),
+            sens_range_max: rng.gen_range(5. .. 50.)
         }
     }
 
@@ -483,8 +486,10 @@ impl Config {
                         json["phi_sens_0"].as_f64().unwrap() as f32;
                     self.phi_sens_1 =
                         json["phi_sens_1"].as_f64().unwrap() as f32;
-                    self.sens_range =
-                        json["sens_range"].as_f64().unwrap() as f32;
+                    self.sens_range_min =
+                        json["sens_range_min"].as_f64().unwrap() as f32;
+                    self.sens_range_max =
+                        json["sens_range_max"].as_f64().unwrap() as f32;
                 },
                 Err(e) => {
                     println!("Error reading config: {:?}", e);
@@ -503,7 +508,8 @@ impl Config {
         println!("  d_phi_sens: {:?}", self.d_phi_sens);
         println!("  phi_sens_0: {:?}", self.phi_sens_0);
         println!("  phi_sens_1: {:?}", self.phi_sens_1);
-        println!("  sens_range: {:?}", self.sens_range);
+        println!("  sens_range_min: {:?}", self.sens_range_min);
+        println!("  sens_range_max: {:?}", self.sens_range_max);
     }
 
 }

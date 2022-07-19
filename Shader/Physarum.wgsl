@@ -14,7 +14,8 @@ struct Uniforms {
     d_phi_sens: f32,
     phi_sens_0: f32,
     phi_sens_1: f32,
-    sens_range: f32,
+    sens_range_min: f32,
+    sens_range_max: f32,
     seed_1: f32,
     seed_2: f32
 };
@@ -28,6 +29,24 @@ struct Uniforms {
 fn rng(seed_1: f32, seed_2: f32) -> f32
 {
     return cos(sin(seed_1) * seed_2);
+}
+
+fn sense(phi: f32, a_x: f32, a_y: f32, max_x: f32, max_y: f32) -> f32
+{
+    var c = 0.;
+
+    for(var r = uniforms.sens_range_min; r <= uniforms.sens_range_max; r=r+1.)
+    {
+        let s_x = floor(cos(phi)*r + a_x);
+        let s_y = floor(sin(phi)*r + a_y);
+
+        if (s_x < 0. || s_x >= max_x ||s_y < 0. || s_y >= max_y) {break;}
+
+        let s_i = u32(s_x) + u32(max_x*s_y);
+        c = c + slime_in[s_i];
+    }
+
+    return c;
 }
 
 @compute
@@ -45,6 +64,7 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>,
     var phi_sens: f32;  // Current sensor orientation
     var c: f32;
     var c_max: f32;  // max. concentration
+    var limit: bool;
 
     for (var i=i0; i<i0+len; i=i+u32(1)){
         if(i > uniforms.nAgents) {
@@ -59,12 +79,9 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>,
         for (var d_phi_sens = uniforms.phi_sens_0;
              d_phi_sens<=uniforms.phi_sens_1;
              d_phi_sens = d_phi_sens + uniforms.d_phi_sens) {
-            phi_sens = agents[i].phi - d_phi_sens;
-            c = slime_in[u32(floor((cos(phi_sens)*uniforms.sens_range +
-                                    agents[i].x)) +
-                             floor((sin(phi_sens)*uniforms.sens_range +
-                                    agents[i].y)) * max_x)];
+            phi_sens = agents[i].phi + d_phi_sens;
 
+            c = sense(phi_sens, agents[i].x, agents[i].y, max_x, max_y);
             if (c > c_max) {
                 c_max = c;
                 phi_max = phi_sens;
@@ -87,17 +104,24 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>,
         agents[i].x = agents[i].x + cos(agents[i].phi) * uniforms.v;
         agents[i].y = agents[i].y + sin(agents[i].phi) * uniforms.v;
 
-        // Wrap environment for agents
+        // Mirror agents
+        limit = false;
         if (agents[i].x < 0.){
-            agents[i].x = agents[i].x + max_x;
+            agents[i].x = 0.;
+            limit = true;
         } else {if (agents[i].x > max_x) {
-            agents[i].x = max_x - agents[i].x;
+            agents[i].x = max_x;
+            limit = true;
         }}
         if (agents[i].y < 0.){
-            agents[i].y = agents[i].y + max_y;
+            agents[i].y = 0.;
+            limit = true;
         } else {if (agents[i].y > max_y) {
-            agents[i].y = max_y - agents[i].y;
+            agents[i].y = max_y;
+            limit = true;
         }}
+
+        if (limit) {agents[i].phi = -agents[i].phi;}
 
         let index: u32 = u32(floor(agents[i].x) + floor(agents[i].y) * max_x);
         slime_out[index] = slime_out[index] + uniforms.deposit;
