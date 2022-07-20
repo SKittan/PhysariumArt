@@ -134,11 +134,12 @@ impl State {
                 }
             );
         }
-        let agents = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Physarum Agents"),
-            contents: bytemuck::cast_slice::<_, u8>(&agents_init),
-            usage:  wgpu::BufferUsages::STORAGE,
-        });
+        let agents = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Physarum Agents"),
+                contents: bytemuck::cast_slice::<_, u8>(&agents_init),
+                usage:  wgpu::BufferUsages::STORAGE,
+            });
 
         // Buffer for slime concentration
         const XY_SIZE: usize = (SIZE_X * SIZE_Y) as usize;
@@ -158,6 +159,28 @@ impl State {
                     wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        // Fixed slime zones -> nutriment
+        let mut nutriment_init: Vec<f32> = vec![0.; XY_SIZE];
+        for _ in 0 .. cfg.n_fix {
+            let r = rng.gen_range(cfg.r_fix_min .. cfg.r_fix_max);
+            let c_x = rng.gen_range(r .. SIZE_X - r);
+            let c_y = rng.gen_range(r .. SIZE_Y - r);
+            for x in c_x-r .. c_x+r {
+                for y in c_y-r .. c_y+r {
+                    let idx = (x + y*SIZE_X) as usize;
+                    nutriment_init[idx] =
+                        (1. - f32::sqrt(f32::powf(x as f32 - c_x as f32, 2.) +
+                                        f32::powf(y as f32 - c_y as f32, 2.))
+                                        / r as f32).max(0.);
+                }}
+        }
+        let nutriment = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Nutriment"),
+                contents: bytemuck::cast_slice::<_, u8>(&nutriment_init),
+                usage:  wgpu::BufferUsages::STORAGE,
+            });
+
 
         // Buffer for parameter
         let uniforms = vec![Uniforms {n_agents: N_AGENTS as u32,
@@ -191,6 +214,7 @@ impl State {
             &agents,
             &slime_agents,
             &slime_slime,
+            &nutriment,
             &uniform_buffer);
         let pipeline_layout_physarum = create_pipeline_layout(
             &device, &bind_group_layout_physarum, "Physarum Compute");
@@ -448,7 +472,10 @@ struct Config {
     phi_sens_1: f32,  // End of sensor angle
     sens_range_min: f32,
     sens_range_max: f32,
-    f_explore: f32
+    f_explore: f32,
+    n_fix: u32,  // Number of fixed max slime zones
+    r_fix_min: u32,  // min radius of fixed max slime zones
+    r_fix_max: u32  // max radius of fixed max slime zones
 }
 
 impl Config {
@@ -462,8 +489,10 @@ impl Config {
             phi_sens_1: 0.25*PI,
             sens_range_min: rng.gen_range(1. .. 5.),
             sens_range_max: rng.gen_range(5. .. 50.),
-            f_explore: rng.gen_range(0. .. 2.)
-
+            f_explore: rng.gen_range(0. .. 2.),
+            n_fix: rng.gen_range(0 .. 25),
+            r_fix_min: rng.gen_range(1 .. 2),
+            r_fix_max: rng.gen_range(2 .. 10)
         }
     }
 
@@ -498,6 +527,12 @@ impl Config {
                         json["sens_range_max"].as_f64().unwrap() as f32;
                     self.f_explore =
                         json["f_explore"].as_f64().unwrap() as f32;
+                    self.n_fix =
+                        json["n_fix"].as_u64().unwrap() as u32;
+                    self.r_fix_min =
+                        json["r_fix_min"].as_u64().unwrap() as u32;
+                    self.r_fix_max =
+                        json["r_fix_max"].as_u64().unwrap() as u32;
                 },
                 Err(e) => {
                     println!("Error reading config: {:?}", e);
@@ -519,6 +554,9 @@ impl Config {
         println!("  sens_range_min: {:?}", self.sens_range_min);
         println!("  sens_range_max: {:?}", self.sens_range_max);
         println!("  f_explore: {:?}", self.f_explore);
+        println!("  n_fix: {:?}", self.n_fix);
+        println!("  r_fix_min: {:?}", self.r_fix_min);
+        println!("  r_fix_max: {:?}", self.r_fix_max);
     }
 
 }

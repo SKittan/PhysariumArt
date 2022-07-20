@@ -85,6 +85,16 @@ pub fn create_bind_group_layout_compute_agents(device: &wgpu::Device)
                     binding: 3,
                     visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {
+                            read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None },
+                    count: None
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
                         min_binding_size: None },
@@ -175,6 +185,7 @@ pub fn create_physarum_bind_group(
     agents: &wgpu::Buffer,
     slime_in: &wgpu::Buffer,
     slime_out: &wgpu::Buffer,
+    nutriment: &wgpu::Buffer,
     uniform_buffer: &wgpu::Buffer)
 -> wgpu::BindGroup
 {
@@ -196,6 +207,10 @@ pub fn create_physarum_bind_group(
             },
             wgpu::BindGroupEntry {
                 binding: 3,
+                resource: nutriment.as_entire_binding()
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
                 resource: uniform_buffer.as_entire_binding()
             }
         ]

@@ -25,7 +25,8 @@ struct Uniforms {
 @group(0) @binding(0) var<storage, read_write> agents: array<Agent>;
 @group(0) @binding(1) var<storage, read> slime_in: array<f32>;
 @group(0) @binding(2) var<storage, read_write> slime_out: array<f32>;
-@group(0) @binding(3) var<uniform> uniforms: Uniforms;
+@group(0) @binding(3) var<storage, read> nutriment: array<f32>;
+@group(0) @binding(4) var<uniform> uniforms: Uniforms;
 
 
 fn rng(seed_1: f32, seed_2: f32) -> f32
@@ -46,7 +47,7 @@ fn sense(phi: f32, a_x: f32, a_y: f32, max_x: f32, max_y: f32, n_agent: u32)
         if (s_x < 0. || s_x >= max_x ||s_y < 0. || s_y >= max_y) {break;}
 
         let s_i = u32(s_x) + u32(max_x*s_y);
-        c = c + slime_in[s_i];
+        c = c + slime_in[s_i] + nutriment[s_i];
     }
 
     return c / uniforms.sense_steps +
