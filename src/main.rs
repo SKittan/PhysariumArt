@@ -123,13 +123,15 @@ impl State {
         // Buffer for physarum agents
         // x, y, phi, 3*sensor (bool) as u32 since bool not supported
         let mut agents_init: Vec<Agent> = Vec::with_capacity(N_AGENTS);
+        let c_x = SIZE_X as f32 * 0.5;
+        let c_y = SIZE_Y as f32 * 0.5;
         for _ in 0 .. N_AGENTS {
-            let x = rng.gen_range(0. .. SIZE_X as f32);
-            let y = rng.gen_range(0. .. SIZE_Y as f32);
+            let r = rng.gen_range(0. .. cfg.r_init);
+            let phi = rng.gen_range(0. .. 2.*PI);
             agents_init.push(
                 Agent{
-                    x,
-                    y,
+                    x: c_x + r*f32::cos(phi),
+                    y: c_y + r*f32::sin(phi),
                     phi: rng.gen_range(0. .. 2.*PI)
                 }
             );
@@ -464,6 +466,7 @@ pub async fn run() {
 }
 
 struct Config {
+    r_init: f32,  // Radius for agent initialisation
     deposit: f32,  // Slime deposition of each agent per step
     decay: f32,
     v: f32,
@@ -481,6 +484,7 @@ struct Config {
 impl Config {
     fn new(rng: &mut ThreadRng) -> Config {
         Config {
+            r_init: rng.gen_range(5. .. 100.),
             deposit: rng.gen_range(0.0001 .. 0.1),
             decay: rng.gen_range(0.1 .. 0.9),
             v: rng.gen_range(0.5 .. 25.),
@@ -512,6 +516,7 @@ impl Config {
                 serde_json::from_str(&data);
             match json_res {
                 Ok(json) => {
+                    self.r_init = json["r_init"].as_f64().unwrap() as f32;
                     self.deposit = json["deposit"].as_f64().unwrap() as f32;
                     self.decay = json["decay"].as_f64().unwrap() as f32;
                     self.v = json["v"].as_f64().unwrap() as f32;
@@ -545,6 +550,7 @@ impl Config {
 
     fn show_state(&self) {
         println!("Physarum configuration:\n--");
+        println!("  r_init: {:?}", self.r_init);
         println!("  deposit: {:?}", self.deposit);
         println!("  decay: {:?}", self.decay);
         println!("  v: {:?}", self.v);
