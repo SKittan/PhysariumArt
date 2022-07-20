@@ -17,6 +17,7 @@ struct Uniforms {
     sens_range_min: f32,
     sens_range_max: f32,
     sense_steps: f32,
+    f_explore:f32,
     seed_1: f32,
     seed_2: f32
 };
@@ -32,7 +33,8 @@ fn rng(seed_1: f32, seed_2: f32) -> f32
     return cos(sin(seed_1) * seed_2);
 }
 
-fn sense(phi: f32, a_x: f32, a_y: f32, max_x: f32, max_y: f32) -> f32
+fn sense(phi: f32, a_x: f32, a_y: f32, max_x: f32, max_y: f32, n_agent: u32)
+-> f32
 {
     var c = 0.;
 
@@ -47,7 +49,9 @@ fn sense(phi: f32, a_x: f32, a_y: f32, max_x: f32, max_y: f32) -> f32
         c = c + slime_in[s_i];
     }
 
-    return c / uniforms.sense_steps;
+    return c / uniforms.sense_steps +
+           rng(uniforms.seed_1*f32(n_agent),
+               uniforms.seed_2) * uniforms.f_explore;
 }
 
 @compute
@@ -81,7 +85,7 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>,
              d_phi_sens = d_phi_sens + uniforms.d_phi_sens) {
             phi_sens = agents[i].phi + d_phi_sens;
 
-            c = sense(phi_sens, agents[i].x, agents[i].y, max_x, max_y);
+            c = sense(phi_sens, agents[i].x, agents[i].y, max_x, max_y, i);
             if (c > c_max) {
                 c_max = c;
                 phi_max = phi_sens;

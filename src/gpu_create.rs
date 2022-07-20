@@ -24,6 +24,7 @@ pub struct Uniforms {  // parameter
     pub sens_range_min: f32,
     pub sens_range_max: f32,
     pub sense_steps: f32,
+    pub f_explore: f32,
     pub seed_1: f32,
     pub seed_2: f32
 }

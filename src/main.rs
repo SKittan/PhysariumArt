@@ -170,6 +170,7 @@ impl State {
                                       sens_range_max: cfg.sens_range_max,
                                       sense_steps: cfg.sens_range_max -
                                                    cfg.sens_range_min + 1.,
+                                      f_explore: cfg.f_explore,
                                       seed_1, seed_2}];
         let usage = wgpu::BufferUsages::UNIFORM;
         let uniform_buffer = device.create_buffer_init(
@@ -446,7 +447,8 @@ struct Config {
     phi_sens_0: f32,  // Start of sensor angle
     phi_sens_1: f32,  // End of sensor angle
     sens_range_min: f32,
-    sens_range_max: f32
+    sens_range_max: f32,
+    f_explore: f32
 }
 
 impl Config {
@@ -459,7 +461,9 @@ impl Config {
             phi_sens_0: -0.25*PI,
             phi_sens_1: 0.25*PI,
             sens_range_min: rng.gen_range(1. .. 5.),
-            sens_range_max: rng.gen_range(5. .. 50.)
+            sens_range_max: rng.gen_range(5. .. 50.),
+            f_explore: rng.gen_range(0. .. 2.)
+
         }
     }
 
@@ -492,6 +496,8 @@ impl Config {
                         json["sens_range_min"].as_f64().unwrap() as f32;
                     self.sens_range_max =
                         json["sens_range_max"].as_f64().unwrap() as f32;
+                    self.f_explore =
+                        json["f_explore"].as_f64().unwrap() as f32;
                 },
                 Err(e) => {
                     println!("Error reading config: {:?}", e);
@@ -512,6 +518,7 @@ impl Config {
         println!("  phi_sens_1: {:?}", self.phi_sens_1);
         println!("  sens_range_min: {:?}", self.sens_range_min);
         println!("  sens_range_max: {:?}", self.sens_range_max);
+        println!("  f_explore: {:?}", self.f_explore);
     }
 
 }
