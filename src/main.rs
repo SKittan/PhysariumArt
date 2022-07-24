@@ -132,7 +132,7 @@ impl State {
                 Agent{
                     x: c_x + r*f32::cos(phi),
                     y: c_y + r*f32::sin(phi),
-                    phi: rng.gen_range(0. .. 2.*PI)
+                    phi: -phi
                 }
             );
         }
