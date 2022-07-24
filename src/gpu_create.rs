@@ -25,8 +25,8 @@ pub struct Uniforms {  // parameter
     pub sens_range_max: f32,
     pub sense_steps: f32,
     pub f_explore: f32,
-    pub seed_1: f32,
-    pub seed_2: f32
+    pub seed_1: u32,
+    pub seed_2: u32
 }
 
 #[repr(C)]

@@ -70,8 +70,8 @@ impl State {
         const SIZE_Y: u32 = 512;
         const N_AGENTS: usize = (2 as usize).pow(22);
         // init shader seeds
-        let seed_1 = rng.gen_range(1e7..9e14);
-        let seed_2 = rng.gen_range(1e7..9e14);
+        let seed_1 = rng.gen_range(1e7 as u32..9e14 as u32);
+        let seed_2 = rng.gen_range(1e7 as u32..9e14 as u32);
 
         let config_file = "./config.json";
 

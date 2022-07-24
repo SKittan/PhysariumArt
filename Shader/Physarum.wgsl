@@ -18,8 +18,8 @@ struct Uniforms {
     sens_range_max: f32,
     sense_steps: f32,
     f_explore:f32,
-    seed_1: f32,
-    seed_2: f32
+    seed_1: u32,
+    seed_2: u32
 };
 
 @group(0) @binding(0) var<storage, read_write> agents: array<Agent>;
@@ -28,10 +28,26 @@ struct Uniforms {
 @group(0) @binding(3) var<storage, read> nutriment: array<f32>;
 @group(0) @binding(4) var<uniform> uniforms: Uniforms;
 
-
-fn rng(seed_1: f32, seed_2: f32) -> f32
+// Hash function www.cs.ubc.ca/~rbridson/docs/schechter-sca08-turbulence.pdf
+fn hash(state: u32) -> u32
 {
-    return cos(sin(seed_1) * seed_2);
+    var out = state ^ 2747636419u;
+    out = out * 2654435769u;
+    out ^= (out >> u32(16));
+    out = out * 2654435769u;
+    out ^= (out >> u32(16));
+    out = out * 2654435769u;
+    return out;
+}
+
+fn scaleToRange01(state: u32) -> f32
+{
+    return f32(state) / 4294967295.0;
+}
+
+fn rng(seed: u32) -> f32
+{
+    return scaleToRange01(hash(seed));
 }
 
 fn sense(phi: f32, a_x: f32, a_y: f32, max_x: f32, max_y: f32, n_agent: u32)
@@ -51,8 +67,7 @@ fn sense(phi: f32, a_x: f32, a_y: f32, max_x: f32, max_y: f32, n_agent: u32)
     }
 
     return c / uniforms.sense_steps +
-           rng(uniforms.seed_1*f32(n_agent),
-               uniforms.seed_2) * uniforms.f_explore;
+           rng(uniforms.seed_2 + n_agent) * uniforms.f_explore;
 }
 
 @compute
@@ -91,7 +106,7 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>,
                 c_max = c;
                 phi_max = phi_sens;
             } else {if ((c == c_max) &&
-                        (rng(f32(lIdx)*uniforms.seed_1, uniforms.seed_2)) > 0.)
+                        (rng(uniforms.seed_1 + lIdx)) > 0.5)
             {
                 // randomly take new phi
                 phi_max = phi_sens;
