@@ -11,15 +11,12 @@ struct Uniforms {
     deposit: f32,
     decay: f32,
     v: f32,
-    d_phi_sens: f32,
-    phi_sens_0: f32,
-    phi_sens_1: f32,
+    phi_sens: f32,
+    turn_speed: f32,
     sens_range_min: f32,
     sens_range_max: f32,
     sense_steps: f32,
-    f_explore:f32,
-    seed_1: u32,
-    seed_2: u32
+    seed: u32,
 };
 
 @group(0) @binding(0) var<storage, read_write> agents: array<Agent>;
@@ -50,7 +47,7 @@ fn rng(seed: u32) -> f32
     return scaleToRange01(hash(seed));
 }
 
-fn sense(phi: f32, a_x: f32, a_y: f32, max_x: f32, max_y: f32, n_agent: u32)
+fn sense(phi: f32, a_x: f32, a_y: f32, max_x: f32, max_y: f32)
 -> f32
 {
     var c = 0.;
@@ -66,8 +63,7 @@ fn sense(phi: f32, a_x: f32, a_y: f32, max_x: f32, max_y: f32, n_agent: u32)
         c = c + slime_in[s_i] + nutriment[s_i];
     }
 
-    return c / uniforms.sense_steps +
-           rng(uniforms.seed_2 + n_agent) * uniforms.f_explore;
+    return c / uniforms.sense_steps;
 }
 
 @compute
@@ -96,24 +92,27 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>,
         // with exact the same concentration -> first detection is selected
         phi_max = 0.;  // init phi_max for a no slime case
         c_max = 0.;
-        for (var d_phi_sens = uniforms.phi_sens_0;
-             d_phi_sens<=uniforms.phi_sens_1;
-             d_phi_sens = d_phi_sens + uniforms.d_phi_sens) {
-            phi_sens = agents[i].phi + d_phi_sens;
 
-            c = sense(phi_sens, agents[i].x, agents[i].y, max_x, max_y, i);
-            if (c > c_max) {
-                c_max = c;
-                phi_max = phi_sens;
-            } else {if ((c == c_max) &&
-                        (rng(uniforms.seed_1 + lIdx)) > 0.5)
-            {
-                // randomly take new phi
-                phi_max = phi_sens;
-            }}
+        let a_seed = uniforms.seed + lIdx;
+
+        let c_left = sense(agents[i].phi - uniforms.phi_sens,
+            	           agents[i].x, agents[i].y, max_x, max_y);
+        let c_center = sense(agents[i].phi,
+                             agents[i].x, agents[i].y, max_x, max_y);
+        let c_right = sense(agents[i].phi + uniforms.phi_sens,
+                            agents[i].x, agents[i].y, max_x, max_y);
+
+        if (c_left > c_center || c_right > c_center) {  // Turn
+            if (c_left == c_right) {
+                agents[i].phi = agents[i].phi +
+                                uniforms.turn_speed * 0.5 * rng(a_seed);
+            } else if (c_left > c_right) {
+                agents[i].phi = agents[i].phi - uniforms.turn_speed;
+            } else {
+                agents[i].phi = agents[i].phi + uniforms.turn_speed;
+            }
         }
 
-        agents[i].phi = phi_max;
         // limit phi between -360 and 360
         if (agents[i].phi < -pi2) {
             agents[i].phi = agents[i].phi + pi2;
@@ -121,13 +120,21 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>,
             agents[i].phi = agents[i].phi - pi2;
         }}
 
-        agents[i].x = min(max(agents[i].x +
-                              cos(agents[i].phi) * uniforms.v, 0.), max_x);
-        agents[i].y = min(max(agents[i].y +
-                              sin(agents[i].phi) * uniforms.v, 0.), max_y);
+        agents[i].x = agents[i].x + cos(agents[i].phi) * uniforms.v;
+        agents[i].y = agents[i].y + sin(agents[i].phi) * uniforms.v;
 
-        let index: u32 = u32(floor(agents[i].x)) +
-                         u32(floor(agents[i].y)) * uniforms.sizeX;
-        slime_out[index] = slime_out[index] + uniforms.deposit;
+        if ((agents[i].x < 0.) || (agents[i].y < 0.) ||
+            (agents[i].x >= max_x) || (agents[i].y >= max_y)) {
+                let mx = f32(uniforms.sizeX) - 1.;
+                let my = f32(uniforms.sizeY) - 1.;
+                let random = hash(a_seed);
+                agents[i].x = min(mx, max(0., agents[i].x));
+                agents[i].y = min(my, max(0., agents[i].y));
+                agents[i].phi = rng(random) * pi2;
+        } else {  // don't set trail on border
+            let index: u32 = u32(floor(agents[i].x)) +
+                             u32(floor(agents[i].y)) * uniforms.sizeX;
+            slime_out[index] = slime_out[index] + uniforms.deposit;
+        }
     }
 }

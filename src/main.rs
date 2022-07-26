@@ -66,12 +66,11 @@ impl State {
         let mut rng = rand::thread_rng();
 
         // Parameter
-        const SIZE_X: u32 = 512;
-        const SIZE_Y: u32 = 512;
+        const SIZE_X: u32 = 1024;
+        const SIZE_Y: u32 = 1024;
         const N_AGENTS: usize = (2 as usize).pow(22);
         // init shader seeds
-        let seed_1 = rng.gen_range(1e7 as u32..9e14 as u32);
-        let seed_2 = rng.gen_range(1e7 as u32..9e14 as u32);
+        let seed = rng.gen_range(1e7 as u32..9e14 as u32);
 
         let config_file = "./config.json";
 
@@ -188,15 +187,14 @@ impl State {
         let uniforms = vec![Uniforms {n_agents: N_AGENTS as u32,
                                       size_x: SIZE_X, size_y: SIZE_Y,
                                       deposit: cfg.deposit, decay: cfg.decay,
-                                      v: cfg.v,d_phi_sens: cfg.d_phi_sens,
-                                      phi_sens_0: cfg.phi_sens_0,
-                                      phi_sens_1: cfg.phi_sens_1,
+                                      v: cfg.v,
+                                      phi_sens: cfg.phi_sens,
+                                      turn_speed: cfg.turn_speed,
                                       sens_range_min: cfg.sens_range_min,
                                       sens_range_max: cfg.sens_range_max,
                                       sense_steps: cfg.sens_range_max -
                                                    cfg.sens_range_min + 1.,
-                                      f_explore: cfg.f_explore,
-                                      seed_1, seed_2}];
+                                      seed}];
         let usage = wgpu::BufferUsages::UNIFORM;
         let uniform_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
@@ -470,12 +468,10 @@ struct Config {
     deposit: f32,  // Slime deposition of each agent per step
     decay: f32,
     v: f32,
-    d_phi_sens: f32,  // Stepping of sensor angle
-    phi_sens_0: f32,  // Start of sensor angle
-    phi_sens_1: f32,  // End of sensor angle
+    phi_sens: f32,  // Sensor angle
+    turn_speed: f32,  // turn speed in rad per step
     sens_range_min: f32,
     sens_range_max: f32,
-    f_explore: f32,
     n_fix: u32,  // Number of fixed max slime zones
     r_fix_min: u32,  // min radius of fixed max slime zones
     r_fix_max: u32  // max radius of fixed max slime zones
@@ -488,12 +484,10 @@ impl Config {
             deposit: rng.gen_range(0.0001 .. 0.1),
             decay: rng.gen_range(0.1 .. 0.9),
             v: rng.gen_range(0.5 .. 25.),
-            d_phi_sens: 0.25*PI,
-            phi_sens_0: -0.25*PI,
-            phi_sens_1: 0.25*PI,
+            phi_sens: rng.gen_range(0.1*PI .. 0.5*PI),
+            turn_speed: rng.gen_range(0.01 .. 0.2*PI),
             sens_range_min: rng.gen_range(1. .. 5.),
             sens_range_max: rng.gen_range(5. .. 50.),
-            f_explore: rng.gen_range(0. .. 2.),
             n_fix: rng.gen_range(0 .. 25),
             r_fix_min: rng.gen_range(1 .. 2),
             r_fix_max: rng.gen_range(2 .. 10)
@@ -520,18 +514,14 @@ impl Config {
                     self.deposit = json["deposit"].as_f64().unwrap() as f32;
                     self.decay = json["decay"].as_f64().unwrap() as f32;
                     self.v = json["v"].as_f64().unwrap() as f32;
-                    self.d_phi_sens =
-                        json["d_phi_sens"].as_f64().unwrap() as f32;
-                    self.phi_sens_0 =
-                        json["phi_sens_0"].as_f64().unwrap() as f32;
-                    self.phi_sens_1 =
-                        json["phi_sens_1"].as_f64().unwrap() as f32;
+                    self.phi_sens =
+                        json["phi_sens"].as_f64().unwrap() as f32;
+                    self.turn_speed =
+                        json["turn_speed"].as_f64().unwrap() as f32;
                     self.sens_range_min =
                         json["sens_range_min"].as_f64().unwrap() as f32;
                     self.sens_range_max =
                         json["sens_range_max"].as_f64().unwrap() as f32;
-                    self.f_explore =
-                        json["f_explore"].as_f64().unwrap() as f32;
                     self.n_fix =
                         json["n_fix"].as_u64().unwrap() as u32;
                     self.r_fix_min =
@@ -554,12 +544,10 @@ impl Config {
         println!("  deposit: {:?}", self.deposit);
         println!("  decay: {:?}", self.decay);
         println!("  v: {:?}", self.v);
-        println!("  d_phi_sens: {:?}", self.d_phi_sens);
-        println!("  phi_sens_0: {:?}", self.phi_sens_0);
-        println!("  phi_sens_1: {:?}", self.phi_sens_1);
+        println!("  phi_sens: {:?}", self.phi_sens);
+        println!("  turn_speed: {:?}", self.turn_speed);
         println!("  sens_range_min: {:?}", self.sens_range_min);
         println!("  sens_range_max: {:?}", self.sens_range_max);
-        println!("  f_explore: {:?}", self.f_explore);
         println!("  n_fix: {:?}", self.n_fix);
         println!("  r_fix_min: {:?}", self.r_fix_min);
         println!("  r_fix_max: {:?}", self.r_fix_max);

@@ -5,15 +5,11 @@ struct Uniforms {
     deposit: f32,
     decay: f32,
     v: f32,
-    d_phi_sens: f32,
-    phi_sens_0: f32,
-    phi_sens_1: f32,
+    phi_sens: f32,
     sens_range_min: f32,
     sens_range_max: f32,
     sense_steps: f32,
-    f_explore:f32,
-    seed_1: f32,
-    seed_2: f32
+    seed: u32,
 };
 @group(0) @binding(0) var<storage, read> slime: array<f32>;
 @group(0) @binding(1) var<uniform> uniforms: Uniforms;

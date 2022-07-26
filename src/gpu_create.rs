@@ -18,15 +18,12 @@ pub struct Uniforms {  // parameter
     pub deposit: f32,
     pub decay: f32,
     pub v: f32,
-    pub d_phi_sens: f32,  // Stepping of sensor angle
-    pub phi_sens_0: f32,  // Start of sensor angle
-    pub phi_sens_1: f32,  // End of sensor angle
+    pub phi_sens: f32,  // Sensor angle
+    pub turn_speed: f32,  // turn speed in rad per step
     pub sens_range_min: f32,
     pub sens_range_max: f32,
     pub sense_steps: f32,
-    pub f_explore: f32,
-    pub seed_1: u32,
-    pub seed_2: u32
+    pub seed: u32,
 }
 
 #[repr(C)]
