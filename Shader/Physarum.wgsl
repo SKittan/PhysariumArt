@@ -16,6 +16,7 @@ struct Uniforms {
     sens_range_min: f32,
     sens_range_max: f32,
     sense_steps: f32,
+    w_nutriment: f32,
     seed: u32,
 };
 
@@ -60,7 +61,7 @@ fn sense(phi: f32, a_x: f32, a_y: f32, max_x: f32, max_y: f32)
         if (s_x < 0. || s_x >= max_x ||s_y < 0. || s_y >= max_y) {break;}
 
         let s_i = u32(s_x) + u32(max_x*s_y);
-        c = c + slime_in[s_i] + nutriment[s_i];
+        c = c + slime_in[s_i] + uniforms.w_nutriment*nutriment[s_i];
     }
 
     return c / uniforms.sense_steps;

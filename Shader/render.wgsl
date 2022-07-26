@@ -6,9 +6,11 @@ struct Uniforms {
     decay: f32,
     v: f32,
     phi_sens: f32,
+    turn_speed: f32,
     sens_range_min: f32,
     sens_range_max: f32,
     sense_steps: f32,
+    w_nutriment: f32,
     seed: u32,
 };
 @group(0) @binding(0) var<storage, read> slime: array<f32>;

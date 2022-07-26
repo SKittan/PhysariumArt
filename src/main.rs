@@ -194,6 +194,7 @@ impl State {
                                       sens_range_max: cfg.sens_range_max,
                                       sense_steps: cfg.sens_range_max -
                                                    cfg.sens_range_min + 1.,
+                                      w_nutriment: cfg.w_nutriment,
                                       seed}];
         let usage = wgpu::BufferUsages::UNIFORM;
         let uniform_buffer = device.create_buffer_init(
@@ -474,7 +475,8 @@ struct Config {
     sens_range_max: f32,
     n_fix: u32,  // Number of fixed max slime zones
     r_fix_min: u32,  // min radius of fixed max slime zones
-    r_fix_max: u32  // max radius of fixed max slime zones
+    r_fix_max: u32,  // max radius of fixed max slime zones
+    w_nutriment: f32  // weighting factor of fixed slime in agent sensors
 }
 
 impl Config {
@@ -490,7 +492,8 @@ impl Config {
             sens_range_max: rng.gen_range(5. .. 50.),
             n_fix: rng.gen_range(0 .. 25),
             r_fix_min: rng.gen_range(1 .. 2),
-            r_fix_max: rng.gen_range(2 .. 10)
+            r_fix_max: rng.gen_range(2 .. 10),
+            w_nutriment: rng.gen_range(0.1 .. 10.)
         }
     }
 
@@ -528,6 +531,8 @@ impl Config {
                         json["r_fix_min"].as_u64().unwrap() as u32;
                     self.r_fix_max =
                         json["r_fix_max"].as_u64().unwrap() as u32;
+                    self.w_nutriment =
+                        json["w_nutriment"].as_f64().unwrap() as f32;
                 },
                 Err(e) => {
                     println!("Error reading config: {:?}", e);
@@ -551,6 +556,7 @@ impl Config {
         println!("  n_fix: {:?}", self.n_fix);
         println!("  r_fix_min: {:?}", self.r_fix_min);
         println!("  r_fix_max: {:?}", self.r_fix_max);
+        println!("  w_nutriment: {:?}", self.w_nutriment);
     }
 
 }
