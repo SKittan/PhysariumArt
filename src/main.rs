@@ -182,14 +182,8 @@ impl State {
                     nutriment_init[idx] =
                         (1. - (vx.powf(2.) + vy.powf(2.)).sqrt() / radius as f32
                          ).max(0.);
-                    let w1 = 1. - nutriment_init[idx];
-                    let w2 = nutriment_init[idx];
                     if nutriment_init[idx] > 0. {
-                        color_nutriment_init[idx] = Color {
-                            r: w1 + w2*r,
-                            g: w1 + w2*g,
-                            b: w1 + w2*b
-                        };
+                        color_nutriment_init[idx] = Color {r, g , b};
                     }
                 }}
         }

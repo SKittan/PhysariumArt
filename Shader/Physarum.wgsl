@@ -150,14 +150,14 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>,
         // Update colors
         let index: u32 = u32(floor(agents[i].x)) +
                          u32(floor(agents[i].y)) * uniforms.sizeX;
-        if (nutriment[index] > 0.9) {
+        if (nutriment[index] > 0.) {
             agent_color[i] = nutriment_color[index];
         }
-        slime_color[index].r = 0.9 * slime_color[index].r +
-                               0.1 * agent_color[i].r;
-        slime_color[index].g = 0.9 * slime_color[index].g +
-                               0.1 * agent_color[i].g;
-        slime_color[index].b = 0.9 * slime_color[index].b +
-                               0.1 * agent_color[i].b;
+        slime_color[index].r = 0.999 * slime_color[index].r +
+                               0.001 * agent_color[i].r;
+        slime_color[index].g = 0.999 * slime_color[index].g +
+                               0.001 * agent_color[i].g;
+        slime_color[index].b = 0.999 * slime_color[index].b +
+                               0.001 * agent_color[i].b;
     }
 }
