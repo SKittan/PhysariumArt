@@ -13,8 +13,16 @@ struct Uniforms {
     w_nutriment: f32,
     seed: u32,
 };
+
+struct Color {
+    r: f32,
+    g: f32,
+    b: f32
+}
+
 @group(0) @binding(0) var<storage, read> slime: array<f32>;
 @group(0) @binding(1) var<uniform> uniforms: Uniforms;
+@group(0) @binding(2) var<storage, read> slime_color: array<Color>;
 
 @fragment
 fn main(@location(0) tex_coords: vec2<f32>) -> @location(0) vec4<f32> {
@@ -22,5 +30,9 @@ fn main(@location(0) tex_coords: vec2<f32>) -> @location(0) vec4<f32> {
     let y = u32(tex_coords.y * f32(uniforms.sizeY));
     let index = x + y*uniforms.sizeX;
 
-    return vec4<f32>(vec3<f32>(slime[index]), 1.);
+    return vec4<f32>(slime_color[index].r * slime[index],
+                     slime_color[index].g * slime[index],
+                     slime_color[index].b * slime[index],
+                     1.
+                     );
 }

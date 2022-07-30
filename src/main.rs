@@ -19,7 +19,7 @@ use gpu_create::{create_physarum_bind_group,
                  create_render_bind_group,
                  create_bind_group_layout_render,
                  create_compute_pipeline, create_pipeline_layout,
-                 Agent, Uniforms, Vertex};
+                 Agent, Uniforms, Vertex, Color};
 
 
 struct State {
@@ -36,7 +36,7 @@ struct State {
     bind_group_slime: wgpu::BindGroup,
     bind_group_r: wgpu::BindGroup,
     compute_physarum: wgpu::ComputePipeline,
-    compute_slime: wgpu::ComputePipeline,
+    compute_slime: wgpu::ComputePipeline
 }
 
 
@@ -162,17 +162,35 @@ impl State {
         });
         // Fixed slime zones -> nutriment
         let mut nutriment_init: Vec<f32> = vec![0.; XY_SIZE];
+        let color_slime_init: Vec<Color> =
+            vec![Color {r: 1., g: 1., b: 1.}; XY_SIZE];
+        let mut color_nutriment_init: Vec<Color> =
+            vec![Color {r: 1., g: 1., b: 1.}; XY_SIZE];
         for _ in 0 .. cfg.n_fix {
-            let r = rng.gen_range(cfg.r_fix_min .. cfg.r_fix_max);
-            let c_x = rng.gen_range(r .. SIZE_X - r);
-            let c_y = rng.gen_range(r .. SIZE_Y - r);
-            for x in c_x-r .. c_x+r {
-                for y in c_y-r .. c_y+r {
+            let radius: u32 = rng.gen_range(cfg.r_fix_min .. cfg.r_fix_max);
+            let c_x: u32 = rng.gen_range(radius .. SIZE_X - radius);
+            let c_y: u32 = rng.gen_range(radius .. SIZE_Y - radius);
+            let r = rng.gen_range(0. .. 1.);
+            let g = rng.gen_range(0. .. 1.);
+            let b = rng.gen_range(0. .. 1.);
+
+            for x in c_x-radius .. c_x+radius {
+                for y in c_y-radius .. c_y+radius {
                     let idx = (x + y*SIZE_X) as usize;
+                    let vx: f32 = x as f32 - c_x as f32;
+                    let vy: f32 = y as f32 - c_y as f32;
                     nutriment_init[idx] =
-                        (1. - f32::sqrt(f32::powf(x as f32 - c_x as f32, 2.) +
-                                        f32::powf(y as f32 - c_y as f32, 2.))
-                                        / r as f32).max(0.);
+                        (1. - (vx.powf(2.) + vy.powf(2.)).sqrt() / radius as f32
+                         ).max(0.);
+                    let w1 = 1. - nutriment_init[idx];
+                    let w2 = nutriment_init[idx];
+                    if nutriment_init[idx] > 0. {
+                        color_nutriment_init[idx] = Color {
+                            r: w1 + w2*r,
+                            g: w1 + w2*g,
+                            b: w1 + w2*b
+                        };
+                    }
                 }}
         }
         let nutriment = device.create_buffer_init(
@@ -181,7 +199,27 @@ impl State {
                 contents: bytemuck::cast_slice::<_, u8>(&nutriment_init),
                 usage:  wgpu::BufferUsages::STORAGE,
             });
-
+        // Color buffer
+        let agents_color_init: Vec<Color> = vec![Color {r: 1., g: 1., b: 1.};
+                                                 N_AGENTS];
+        let color_agents = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Color Agents"),
+                contents: bytemuck::cast_slice::<_, u8>(&agents_color_init),
+                usage:  wgpu::BufferUsages::STORAGE,
+        });
+        let color_slime = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Color SLIME Src"),
+                contents: bytemuck::cast_slice::<_, u8>(&color_slime_init),
+                usage:  wgpu::BufferUsages::STORAGE
+            });
+        let color_nutriment = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Color SLIME Dst"),
+                contents: bytemuck::cast_slice::<_, u8>(&color_nutriment_init),
+                usage:  wgpu::BufferUsages::STORAGE
+            });
 
         // Buffer for parameter
         let uniforms = vec![Uniforms {n_agents: N_AGENTS as u32,
@@ -216,7 +254,11 @@ impl State {
             &slime_agents,
             &slime_slime,
             &nutriment,
-            &uniform_buffer);
+            &uniform_buffer,
+            &color_agents,
+            &color_slime,
+            &color_nutriment
+        );
         let pipeline_layout_physarum = create_pipeline_layout(
             &device, &bind_group_layout_physarum, "Physarum Compute");
         let physarum_pipeline = create_compute_pipeline(&device,
@@ -249,7 +291,9 @@ impl State {
             &device,
             &bind_group_layout_r,
             &slime_agents,
-            &uniform_buffer);
+            &uniform_buffer,
+            &color_slime
+        );
         let pipeline_layout_r = create_pipeline_layout(
             &device,
             &bind_group_layout_r,
@@ -329,7 +373,7 @@ impl State {
             bind_group_slime,
             bind_group_r,
             compute_physarum: physarum_pipeline,
-            compute_slime: slime_pipeline,
+            compute_slime: slime_pipeline
         }
     }
 

@@ -20,11 +20,21 @@ struct Uniforms {
     seed: u32,
 };
 
+struct Color {
+    r: f32,
+    g: f32,
+    b: f32
+}
+
 @group(0) @binding(0) var<storage, read_write> agents: array<Agent>;
 @group(0) @binding(1) var<storage, read> slime_in: array<f32>;
 @group(0) @binding(2) var<storage, read_write> slime_out: array<f32>;
 @group(0) @binding(3) var<storage, read> nutriment: array<f32>;
 @group(0) @binding(4) var<uniform> uniforms: Uniforms;
+@group(0) @binding(5) var<storage, read_write> agent_color: array<Color>;
+@group(0) @binding(6) var<storage, read_write> slime_color: array<Color>;
+@group(0) @binding(7) var<storage, read> nutriment_color: array<Color>;
+
 
 // Hash function www.cs.ubc.ca/~rbridson/docs/schechter-sca08-turbulence.pdf
 fn hash(state: u32) -> u32
@@ -137,5 +147,17 @@ fn main(@builtin(global_invocation_id) gId: vec3<u32>,
                              u32(floor(agents[i].y)) * uniforms.sizeX;
             slime_out[index] = slime_out[index] + uniforms.deposit;
         }
+        // Update colors
+        let index: u32 = u32(floor(agents[i].x)) +
+                         u32(floor(agents[i].y)) * uniforms.sizeX;
+        if (nutriment[index] > 0.9) {
+            agent_color[i] = nutriment_color[index];
+        }
+        slime_color[index].r = 0.9 * slime_color[index].r +
+                               0.1 * agent_color[i].r;
+        slime_color[index].g = 0.9 * slime_color[index].g +
+                               0.1 * agent_color[i].g;
+        slime_color[index].b = 0.9 * slime_color[index].b +
+                               0.1 * agent_color[i].b;
     }
 }

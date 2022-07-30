@@ -35,13 +35,22 @@ pub struct Agent {
     pub phi: f32
 }
 
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct Color {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32
+}
+
 unsafe impl Zeroable for Agent {}
 unsafe impl Pod for Agent {}
 unsafe impl Zeroable for Uniforms {}
 unsafe impl Pod for Uniforms {}
 unsafe impl Zeroable for Vertex {}
 unsafe impl Pod for Vertex {}
-
+unsafe impl Zeroable for Color {}
+unsafe impl Pod for Color {}
 
 pub fn create_bind_group_layout_compute_agents(device: &wgpu::Device)
 -> wgpu::BindGroupLayout
@@ -94,6 +103,36 @@ pub fn create_bind_group_layout_compute_agents(device: &wgpu::Device)
                     visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None },
+                    count: None
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {
+                            read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None },
+                    count: None
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {
+                            read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None },
+                    count: None
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 7,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {
+                            read_only: true},
                         has_dynamic_offset: false,
                         min_binding_size: None },
                     count: None
@@ -170,6 +209,16 @@ pub fn create_bind_group_layout_render(
                         has_dynamic_offset: false,
                         min_binding_size: None },
                     count: None
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {
+                            read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None },
+                    count: None
                 }
             ],
             label: Some("Render Layout"),
@@ -184,7 +233,10 @@ pub fn create_physarum_bind_group(
     slime_in: &wgpu::Buffer,
     slime_out: &wgpu::Buffer,
     nutriment: &wgpu::Buffer,
-    uniform_buffer: &wgpu::Buffer)
+    uniform_buffer: &wgpu::Buffer,
+    agent_color_buffer: &wgpu::Buffer,
+    slime_color_buffer: &wgpu::Buffer,
+    nutriment_color_buffer: &wgpu::Buffer)
 -> wgpu::BindGroup
 {
     device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -210,6 +262,18 @@ pub fn create_physarum_bind_group(
             wgpu::BindGroupEntry {
                 binding: 4,
                 resource: uniform_buffer.as_entire_binding()
+            },
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: agent_color_buffer.as_entire_binding()
+            },
+            wgpu::BindGroupEntry {
+                binding: 6,
+                resource: slime_color_buffer.as_entire_binding()
+            },
+            wgpu::BindGroupEntry {
+                binding: 7,
+                resource: nutriment_color_buffer.as_entire_binding()
             }
         ]
     })
@@ -247,7 +311,8 @@ pub fn create_render_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     slime: &wgpu::Buffer,
-    uniform_buffer: &wgpu::Buffer)
+    uniform_buffer: &wgpu::Buffer,
+    slime_color_buffer: &wgpu::Buffer)
 -> wgpu::BindGroup
 {
     device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -261,6 +326,10 @@ pub fn create_render_bind_group(
             wgpu::BindGroupEntry {
                 binding: 1,
                 resource: uniform_buffer.as_entire_binding()
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: slime_color_buffer.as_entire_binding()
             }
         ]
     })
